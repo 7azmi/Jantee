@@ -4,7 +4,7 @@ import math
 from cvzone.PoseModule import PoseDetector
 
 # Constants
-VIDEO_PATH = '/samples/vid14.mp4'
+VIDEO_PATH = 'app/pushup_detector/samples/vid14.mp4'
 TRACK_CONFIDENCE = 0.50
 DETECTION_CONFIDENCE = 0.9
 FRAME_SKIP = 3
@@ -21,10 +21,17 @@ direction = 0
 frame_count = 0
 
 # Set up video capture and pose detector
-#cap = cv2.VideoCapture(VIDEO_PATH)
-#if not cap.isOpened():
+# cap = cv2.VideoCapture(VIDEO_PATH)
+# if not cap.isOpened():
 #    raise IOError("Cannot open video file")
 pd = PoseDetector(trackCon=TRACK_CONFIDENCE, detectionCon=DETECTION_CONFIDENCE)
+
+
+def get_video_cap_from_path(path):
+    cap = cv2.VideoCapture(path)
+    if not cap.isOpened():
+        raise IOError("Cannot open video file")
+    return cap
 
 
 def draw_pose_points_and_lines(img, points, drawpoints):
@@ -82,7 +89,7 @@ def process_frame(img, drawpoints):
     return img  # Return the annotated frame
 
 
-
+# for testing
 def calculate_pushups():
     cap = cv2.VideoCapture(VIDEO_PATH)
     global counter, frame_count
@@ -97,6 +104,7 @@ def calculate_pushups():
     cap.release()
     return int(counter)
 
+
 def calculate_pushups_from_stream(video_stream):
     global counter, frame_count
     counter = 0
@@ -109,6 +117,8 @@ def calculate_pushups_from_stream(video_stream):
         process_frame(img, drawpoints=False)
     return int(counter)
 
+
+# doesn't work yet
 def calculate_and_annotate_pushups(video_stream):
     global counter, frame_count
     counter = 0
@@ -123,9 +133,12 @@ def calculate_and_annotate_pushups(video_stream):
         annotated_frames.append(annotated_frame)
     return int(counter), annotated_frames
 
-
-#pushups = calculate_pushups()
-#print(pushups)
+#count, frames = calculate_and_annotate_pushups(get_video_cap_from_path(VIDEO_PATH))
+#count = calculate_pushups_from_stream(get_video_cap_from_path(VIDEO_PATH))
+#print(count)
+#print(frames)
+# pushups = calculate_pushups()
+# print(pushups)
 # testing
 #
 # while True:

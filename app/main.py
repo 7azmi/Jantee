@@ -28,7 +28,7 @@ def main():
     set_commands_handler(dp)
 
     # message handler
-    dp.add_handler(MessageHandler(Filters.text, echo))
+    dp.add_handler(MessageHandler(Filters.video_note | Filters.text | Filters.video, echo))
 
     # log all errors
     dp.add_error_handler(error)
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # Enable logging
     DefaultConfig.init_logging()
     logging.info(f"PORT: {DefaultConfig.PORT}")
-    #main()
-    database.API.run_API()
+    main()
+    #database.API.run_API()
 
 
