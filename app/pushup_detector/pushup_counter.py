@@ -4,7 +4,7 @@ import math
 from cvzone.PoseModule import PoseDetector
 
 # Constants
-VIDEO_PATH = '../pushup detector/samples/vid14.mp4'
+VIDEO_PATH = '/samples/vid14.mp4'
 TRACK_CONFIDENCE = 0.50
 DETECTION_CONFIDENCE = 0.9
 FRAME_SKIP = 3
@@ -21,9 +21,9 @@ direction = 0
 frame_count = 0
 
 # Set up video capture and pose detector
-cap = cv2.VideoCapture(VIDEO_PATH)
-if not cap.isOpened():
-    raise IOError("Cannot open video file")
+#cap = cv2.VideoCapture(VIDEO_PATH)
+#if not cap.isOpened():
+#    raise IOError("Cannot open video file")
 pd = PoseDetector(trackCon=TRACK_CONFIDENCE, detectionCon=DETECTION_CONFIDENCE)
 
 
@@ -72,13 +72,15 @@ def display_hud(img, counter):
 def process_frame(img, drawpoints):
     global frame_count
     if frame_count % FRAME_SKIP != 0:
-        return
+        return img  # Return the unprocessed frame
     img = cv2.resize(img, (900, 900))
     pd.findPose(img, draw=False)
     lmlist, _ = pd.findPosition(img, draw=False)
     angles(img, lmlist, [11, 13, 15, 12, 14, 16], drawpoints)
     if drawpoints:
         display_hud(img, counter)
+    return img  # Return the annotated frame
+
 
 
 def calculate_pushups():
@@ -95,9 +97,35 @@ def calculate_pushups():
     cap.release()
     return int(counter)
 
+def calculate_pushups_from_stream(video_stream):
+    global counter, frame_count
+    counter = 0
+    frame_count = 0
+    while True:
+        ret, img = video_stream.read()
+        frame_count += 1
+        if not ret:
+            break
+        process_frame(img, drawpoints=False)
+    return int(counter)
 
-pushups = calculate_pushups()
-print(pushups)
+def calculate_and_annotate_pushups(video_stream):
+    global counter, frame_count
+    counter = 0
+    frame_count = 0
+    annotated_frames = []
+    while True:
+        ret, img = video_stream.read()
+        frame_count += 1
+        if not ret:
+            break
+        annotated_frame = process_frame(img, drawpoints=True)
+        annotated_frames.append(annotated_frame)
+    return int(counter), annotated_frames
+
+
+#pushups = calculate_pushups()
+#print(pushups)
 # testing
 #
 # while True:
