@@ -4,8 +4,6 @@ import os
 import sys
 from telegram.ext import CommandHandler, Filters, MessageHandler, Updater
 
-import database.API
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.handlers import *
 
