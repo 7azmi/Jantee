@@ -112,4 +112,3 @@ def missed_days_this_month(telegram_id):
 def run_API():
     app.run(debug=True)
 
-run_API()

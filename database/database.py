@@ -317,7 +317,7 @@ def upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_
 
 
 # upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_TABLE, USERS_TABLE, DAILY_PUSHUP_RECORD_TABLE)
-generate_database_design()
+#generate_database_design()
 #add_new_group(-1002127852426, 100 ,'Pay RM10', '+08', '100 Pushups or -RM10')
 # create_db()
 # add_new_group(0, 100, 'A virtual group for non-group users')  # Manually specify group_id as 1
