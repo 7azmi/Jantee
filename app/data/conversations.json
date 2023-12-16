@@ -1,0 +1,20 @@
+{
+    "en": {
+        "start_new_user": [
+            "Welcome to the pushup squad! I'm Lucy, your coach. Ready to get stronger? Let's roll! 👊",
+            "Hey there! I'm Lucy, ready to guide you to pushup success. Let's start this journey together! 🚀"
+        ],
+        "start_existing_user": [
+            "Welcome back! Grab that determination and let's hit today's pushup goal! 🎯",
+            "Back again? Your dedication is unbeatable! Let's dive into today's session! 💪"
+        ],
+        "first_video_note": [
+            "First pushup nailed! Welcome to the challenge. Let's keep this fire burning! 🔥",
+            "Rocking those pushups on the first go! You're in for a ride of gains! 💪"
+        ]
+    },
+    "es": {
+    },
+    "fr": {
+    }
+}
