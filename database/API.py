@@ -107,3 +107,9 @@ def missed_days_this_month(telegram_id):
     else:
         cursor.close()
         return jsonify({'error': 'User or group not found'}), 404
+
+
+def run_API():
+    app.run(debug=True)
+
+run_API()
