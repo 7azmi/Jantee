@@ -1,0 +1,71 @@
+@startuml
+actor User
+actor Admin
+participant "Lucy Chatbot" as Lucy
+participant "Database" as DB
+
+== User sends /Start ==
+User -> Lucy: /Start
+alt New User
+    Lucy -> DB: Check User in Database
+    DB --> Lucy: User Not Found
+    Lucy -> User: [New User Welcome Message]
+else Existing User
+    Lucy -> DB: Check User in Database
+    DB --> Lucy: User Found
+    Lucy -> User: [Existing User Instructions]
+end
+
+== User Sends In-Group Video Note ==
+User -> Lucy: Send in-group video note
+alt Very First Video Note
+    Lucy -> User: [Welcoming Message for First Pushup Count]
+else First Video Note of the Day
+    Lucy -> User: [Daily First Video Note Message with Tips]
+else Middle Video Note
+    Lucy -> User: [Middle Video Note Encouragement]
+else Last Video Note
+    Lucy -> User: [Last Video Note with Famous Quote]
+else One-Take Video Note
+    Lucy -> User: [One-Take Video Note Celebration]
+end
+
+== User Sends DM Video Note ==
+User -> Lucy: Send DM video note
+alt First Time Learning Counter
+    alt Five Pushups Done
+        Lucy -> User: [Message for Correct Five Pushups]
+    else Less Than Five
+        Lucy -> User: [Message for Less Than Five Pushups]
+    else More Than Five
+        Lucy -> User: [Message for More Than Five Pushups]
+    else Zero Pushups Recognised
+        Lucy -> User: [Message for Zero Pushups]
+    end
+else After First Time
+    Lucy -> User: [Follow-up Message with Tips]
+end
+
+== Midnight Summary ==
+Lucy -> DB: Generate Non-Performers List
+DB --> Lucy: List Generated
+Lucy -> User: [Midnight Summary with Punishment Warning]
+
+== Lucy is Added to a New Group ==
+Admin -> Lucy: Add to Group
+alt New Group
+    Lucy -> DB: Check Group in Database
+    DB --> Lucy: Group Not Found
+    Lucy -> User: [New Group Initial Setup Message]
+else Existing Group
+    Lucy -> DB: Check Group in Database
+    DB --> Lucy: Group Found
+    Lucy -> User: [Existing Group Re-Introduction]
+end
+
+== Admin Changes Group Rules ==
+Admin -> Lucy: Request Rules Change
+Lucy -> DB: Update Group Settings
+DB --> Lucy: Settings Updated
+Lucy -> User: [Admin Update Notification]
+@enduml

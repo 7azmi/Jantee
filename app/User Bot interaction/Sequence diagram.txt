@@ -1,0 +1,36 @@
+@startuml
+actor User
+actor Admin
+participant "Lucy Chatbot" as Lucy
+participant "Database" as DB
+participant "Webapp Interface" as Webapp
+
+== User Registration ==
+User -> Lucy: Join Telegram Group
+Lucy -> DB: Register User
+
+== Pushup Recording ==
+User -> Lucy: Send Pushup Video
+Lucy -> DB: Count & Record Pushups
+
+== Target Monitoring ==
+Lucy -> DB: Check Daily Target
+DB --> Lucy: Target Status
+
+== Punishment Application ==
+alt User Fails to Meet Target
+    Lucy -> User: Apply Punishment
+else User Meets Target
+    Lucy -> User: Acknowledge Achievement
+end
+
+== Group Management by Admins ==
+Admin -> Lucy: Initialize/Update/Delete Group
+Lucy -> DB: Update Group Settings
+
+== User Queries and Webapp Updates ==
+User -> Webapp: Request Stats/Update Preferences
+Webapp -> DB: Query/Update User Data
+DB --> Webapp: Provide Requested Info/Confirm Update
+Webapp -> User: Display Info/Confirmation
+@enduml
