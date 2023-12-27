@@ -2,7 +2,7 @@ import logging
 import logging.config
 import os
 import sys
-from telegram.ext import CommandHandler, Filters, MessageHandler, Updater
+from telegram.ext import CommandHandler, Filters, MessageHandler, Updater, ChatMemberHandler
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.handlers import *
@@ -29,6 +29,8 @@ def main():
 
     # message handler
     dp.add_handler(MessageHandler(Filters.video_note | Filters.text | Filters.video, echo))
+    dp.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.ANY_CHAT_MEMBER))
+    #dp.add_handler(ChatMemberHandler(user_status_update, ChatMemberHandler.CHAT_MEMBER))
 
     # log all errors
     dp.add_error_handler(error)
@@ -39,7 +41,7 @@ def main():
             listen="0.0.0.0",
             port=int(DefaultConfig.PORT),
             url_path=DefaultConfig.TELEGRAM_TOKEN,
-            webhook_url=DefaultConfig.WEBHOOK_URL + '/ '+ DefaultConfig.TELEGRAM_TOKEN
+            webhook_url=DefaultConfig.WEBHOOK_URL + '/'+ DefaultConfig.TELEGRAM_TOKEN
         )
 
         logging.info(f"Start webhook mode on port {DefaultConfig.PORT}")

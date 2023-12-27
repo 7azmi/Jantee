@@ -2,14 +2,17 @@ import json
 import random
 
 
+
 # Load the messages from a JSON file
 def load_messages(filename):
     with open(filename, 'r', encoding='utf-8') as file:
         return json.load(file)
 
+# Example usage
+messages = load_messages('app/data/conversations.json')
 
 # Example function to get a message
-def get_message(messages, language, situation, order='random'):
+def get_message(situation, order='random', language = 'en'):
     """
     Retrieves a message for a given language and situation.
     By default, it picks randomly unless specified to use 'sequential' order.
@@ -24,6 +27,6 @@ def get_message(messages, language, situation, order='random'):
         return situation_messages[0]  # Placeholder for the first message.
 
 
+
 # Example usage
-messages = load_messages('app/data/conversations.json')
-print(get_message(messages, 'en', 'start_new_user'))  # Random English message for a new user
+#print(get_message( 'start_new_user'))  # Random English message for a new user
