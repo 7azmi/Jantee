@@ -37,7 +37,7 @@ def main():
             listen="0.0.0.0",
             port=int(DefaultConfig.PORT),
             url_path=DefaultConfig.TELEGRAM_TOKEN,
-            webhook_url=DefaultConfig.WEBHOOK_URL + DefaultConfig.TELEGRAM_TOKEN
+            webhook_url=DefaultConfig.WEBHOOK_URL + '/ '+ DefaultConfig.TELEGRAM_TOKEN
         )
 
         logging.info(f"Start webhook mode on port {DefaultConfig.PORT}")
