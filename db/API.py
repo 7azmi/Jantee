@@ -1,7 +1,9 @@
 import datetime
 import os
+from fastapi import FastAPI, HTTPException
 import psycopg2
-from flask import Flask, jsonify, request
+import uvicorn
+
 
 # Database credentials
 db_host = os.environ.get("PGHOST", "your_host")
@@ -10,7 +12,7 @@ db_password = os.environ.get("PGPASSWORD", "your_password")
 db_name = os.environ.get("PGDATABASE", "your_database")
 db_port = os.environ.get("PGPORT", "your_database")
 
-app = Flask(__name__)
+app = FastAPI()
 connection = psycopg2.connect(
     host=db_host,
     port=db_port,
@@ -20,45 +22,49 @@ connection = psycopg2.connect(
 )
 
 
-@app.route('/api/users', methods=['GET'])
+@app.get('/api/users')
 def get_items():
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM users")
     items = cursor.fetchall()
     cursor.close()
-    return jsonify(items), 200
+    return items
 
 
-@app.route('/api/groups', methods=['GET'])
+@app.get('/api/groups')
 def get_groups():
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM groups")
     items = cursor.fetchall()
     cursor.close()
-    return jsonify(items), 200
+    return items
 
 
-@app.route('/api/users/<int:telegram_id>', methods=['GET'])
-def get_user_by_telegram_id(telegram_id):
+@app.get('/api/users/{telegram_id}')
+def get_user_by_telegram_id(telegram_id: int):
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM users WHERE telegram_id = %s", (telegram_id,))
     item = cursor.fetchone()
     cursor.close()
-    return jsonify(item), 200 if item else (jsonify({"error": "User not found"}), 404)
+    if item:
+        return item
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
 
-@app.route('/api/pushups/done_today/<int:telegram_id>', methods=['GET'])
-def pushups_done_today(telegram_id):
+
+@app.get('/api/pushups/done_today/{telegram_id}')
+def pushups_done_today(telegram_id: int):
     current_date = datetime.date.today()
     cursor = connection.cursor()
     query = "SELECT pushups_count FROM daily_pushup_record WHERE user_telegram_id = %s AND date = %s"
     cursor.execute(query, (telegram_id, current_date))
     result = cursor.fetchone()
     cursor.close()
-    return jsonify({'pushups_done_today': result[0] if result else 0}), 200
+    return {'pushups_done_today': result[0] if result else 0}
 
 
-@app.route('/api/pushups/remaining_today/<int:telegram_id>', methods=['GET'])
-def remaining_pushups_today(telegram_id):
+@app.get('/api/pushups/remaining_today/{telegram_id}')
+def remaining_pushups_today(telegram_id: int):
     current_date = datetime.date.today()
     cursor = connection.cursor()
     cursor.execute("SELECT g.pushup_goal, COALESCE(p.pushups_count, 0) FROM groups g JOIN users u ON g.group_id = u.group_id LEFT JOIN daily_pushup_record p ON u.telegram_id = p.user_telegram_id AND p.date = %s WHERE u.telegram_id = %s", (current_date, telegram_id))
@@ -66,33 +72,33 @@ def remaining_pushups_today(telegram_id):
     cursor.close()
     if result:
         remaining = max(result[0] - result[1], 0)
-        return jsonify({'remaining_pushups_today': remaining}), 200
+        return {'remaining_pushups_today': remaining}
     else:
-        return jsonify({'error': 'User or group not found'}), 404
+        raise HTTPException(status_code=404, detail="User or group not found")
 
 
-@app.route('/api/user/group_name/<int:telegram_id>', methods=['GET'])
-def get_user_group_name(telegram_id):
+@app.get('/api/user/group_name/{telegram_id}')
+def get_user_group_name(telegram_id: int):
     cursor = connection.cursor()
     query = "SELECT g.group_name FROM groups g JOIN users u ON g.group_id = u.group_id WHERE u.telegram_id = %s"
     cursor.execute(query, (telegram_id,))
     result = cursor.fetchone()
     cursor.close()
-    return jsonify({'group_name': result[0] if result else 'No group found'}), 200
+    return {'group_name': result[0] if result else 'No group found'}
 
 
-@app.route('/api/pushups/total/<int:telegram_id>', methods=['GET'])
-def total_pushups_done(telegram_id):
+@app.get('/api/pushups/total/{telegram_id}')
+def total_pushups_done(telegram_id: int):
     cursor = connection.cursor()
     query = "SELECT SUM(pushups_count) FROM daily_pushup_record WHERE user_telegram_id = %s"
     cursor.execute(query, (telegram_id,))
     result = cursor.fetchone()
     cursor.close()
-    return jsonify({'total_pushups_done': result[0] if result and result[0] is not None else 0}), 200
+    return {'total_pushups_done': result[0] if result and result[0] is not None else 0}
 
 
-@app.route('/api/pushups/missed_days/<int:telegram_id>', methods=['GET'])
-def missed_days_this_month(telegram_id):
+@app.get('/api/pushups/missed_days/{telegram_id}')
+def missed_days_this_month(telegram_id: int):
     current_month = datetime.date.today().replace(day=1)
     cursor = connection.cursor()
     cursor.execute("SELECT g.pushup_goal FROM groups g JOIN users u ON g.group_id = u.group_id WHERE u.telegram_id = %s", (telegram_id,))
@@ -103,12 +109,11 @@ def missed_days_this_month(telegram_id):
         cursor.execute(query, (current_month, telegram_id, pushup_goal))
         missed_days = cursor.fetchone()[0]
         cursor.close()
-        return jsonify({'missed_days_this_month': missed_days}), 200
+        return {'missed_days_this_month': missed_days}
     else:
         cursor.close()
-        return jsonify({'error': 'User or group not found'}), 404
+        raise HTTPException(status_code=404, detail="User or group not found")
 
 
 def run_API():
-    app.run(debug=True)
-
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("APIPORT", 5000)))
