@@ -331,7 +331,7 @@ def upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_
 # add_new_group('-1002127852426')
 
 # Sadman 2012089704
-create_pushups(123456789, 100, '+1')
+#create_pushups(123456789, 100, '+1')
 # change_group_timezone(321, '-07')
 # add_new_group(321, 50, "nothing", get_timezone_automatically())
 # print(get_timezone_automatically())
