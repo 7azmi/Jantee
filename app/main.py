@@ -2,9 +2,9 @@ import logging
 import logging.config
 import os
 import sys
-from telegram.ext import CommandHandler, Filters, MessageHandler, Updater, ChatMemberHandler
+from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler
 
-from db import API
+from app.database import API
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.handlers import *
