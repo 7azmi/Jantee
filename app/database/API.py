@@ -1,9 +1,9 @@
-import datetime
 import os
 from fastapi import FastAPI, HTTPException
 import psycopg2
 import uvicorn
-
+from datetime import timedelta, datetime
+#import pytz
 
 # Database credentials
 db_host = os.environ.get("PGHOST", "your_host")
@@ -86,38 +86,50 @@ def get_user_group_name(telegram_id: int):
     cursor.close()
     return {'group_name': result[0] if result else 'No group found'}
 
+
 @app.get('/api/pushups/streak/{telegram_id}')
 def pushup_streak(telegram_id: int):
-    current_date = datetime.date.today()
+    # Get UTC now, to be adjusted according to the group's timezone
+    utc_now = datetime.utcnow()
+
     cursor = connection.cursor()
 
-    # Get the user's pushup goal
-    cursor.execute("SELECT g.pushup_goal FROM groups g JOIN users u ON g.group_id = u.group_id WHERE u.telegram_id = %s", (telegram_id,))
-    pushup_goal = cursor.fetchone()
-    if not pushup_goal:
+    # Get the user's pushup goal and timezone
+    cursor.execute(
+        "SELECT g.pushup_goal, g.timezone FROM groups g JOIN users u ON g.group_id = u.group_id WHERE u.telegram_id = %s",
+        (telegram_id,))
+    result = cursor.fetchone()
+    if not result:
         cursor.close()
         raise HTTPException(status_code=404, detail="User or group not found")
 
-    pushup_goal = pushup_goal[0]
+    pushup_goal, group_timezone = result
 
-    # Query to check the streak
-    query = """
-    WITH RECURSIVE date_series AS (
-        SELECT %s::date AS date
-        UNION ALL
-        SELECT date - INTERVAL '1 day' FROM date_series WHERE date > (SELECT MIN(date) FROM daily_pushup_record WHERE user_telegram_id = %s)
-    )
-    SELECT COUNT(*) FROM date_series
-    WHERE EXISTS (
-        SELECT 1 FROM daily_pushup_record
-        WHERE user_telegram_id = %s AND date = date_series.date AND pushups_count >= %s
-    )
-    """
+    # Adjust current date to group's timezone
+    timezone_offset = int(group_timezone)
+    current_date = (utc_now + timedelta(hours=timezone_offset)).date()
 
-    cursor.execute(query, (current_date, telegram_id, telegram_id, pushup_goal))
-    streak_count = cursor.fetchone()[0]
+    # Initialize streak count
+    streak_count = 0
+
+    for day in range(0, 365):  # Assuming to check up to a year backwards
+        check_date = current_date - timedelta(days=day)
+        cursor.execute("SELECT pushups_count FROM daily_pushup_record WHERE user_telegram_id = %s AND date = %s",
+                       (telegram_id, check_date))
+        result = cursor.fetchone()
+
+        # If it's today and there's no record yet, don't break the streak
+        if check_date == current_date and not result:
+            continue
+
+        # If there's a record and it meets or exceeds the goal, increment the streak
+        if result and result[0] >= pushup_goal:
+            streak_count += 1
+        else:
+            # If a day is missed or doesn't meet the goal, break the streak
+            break
+
     cursor.close()
-
     return {'pushup_streak': streak_count}
 
 

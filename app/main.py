@@ -4,6 +4,7 @@ import os
 import sys
 from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler
 
+import app.database.database
 from database import API
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -73,5 +74,5 @@ if __name__ == "__main__":
     # Enable logging
     DefaultConfig.init_logging()
     logging.info(f"PORT: {DefaultConfig.PORT}")
-    # main()
+    main()
     API.run_API()

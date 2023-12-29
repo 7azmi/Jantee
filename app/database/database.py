@@ -195,53 +195,53 @@ def remove_user_from_group(telegram_id):
     assign_user_to_group(telegram_id, 0)
 
 
-def update_pushups(telegram_id, pushups_count_increase):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
-
-        # Fetch group_id and timezone offset for the user
-        c.execute(
-            f"SELECT g.timezone FROM {USERS_TABLE} u JOIN {GROUPS_TABLE} g ON u.group_id = g.group_id WHERE u.telegram_id = %s;",
-            (telegram_id,))
-        timezone_offset = c.fetchone()
-
-        if timezone_offset:
-            offset_hours = int(timezone_offset[0])
-            current_utc_time = datetime.utcnow()
-            current_local_time = current_utc_time + timedelta(hours=offset_hours)
-            current_date = current_local_time.date().isoformat()
-        else:
-            print("User's group or timezone not found.")
-            return
-
-        # Check if a record exists for the current date
-        c.execute(f"""
-            SELECT pushups_count FROM {DAILY_PUSHUP_RECORD_TABLE}
-            WHERE user_telegram_id = %s AND date = %s;
-            """, (telegram_id, current_date))
-        existing_record = c.fetchone()
-
-        if existing_record:
-            # Update the existing record
-            new_pushups_count = existing_record[0] + pushups_count_increase
-            c.execute(f"""
-                UPDATE {DAILY_PUSHUP_RECORD_TABLE}
-                SET pushups_count = %s
-                WHERE user_telegram_id = %s AND date = %s;
-                """, (new_pushups_count, telegram_id, current_date))
-        else:
-            # Insert a new record
-            c.execute(f"""
-                INSERT INTO {DAILY_PUSHUP_RECORD_TABLE} (user_telegram_id, date, pushups_count)
-                VALUES (%s, %s, %s);
-                """, (telegram_id, current_date, pushups_count_increase))
-
-        conn.commit()
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-    finally:
-        conn.close()
+# def update_pushups(telegram_id, pushups_count_increase):
+#     try:
+#         conn = create_connection()
+#         c = conn.cursor()
+#
+#         # Fetch group_id and timezone offset for the user
+#         c.execute(
+#             f"SELECT g.timezone FROM {USERS_TABLE} u JOIN {GROUPS_TABLE} g ON u.group_id = g.group_id WHERE u.telegram_id = %s;",
+#             (telegram_id,))
+#         timezone_offset = c.fetchone()
+#
+#         if timezone_offset:
+#             offset_hours = int(timezone_offset[0])
+#             current_utc_time = datetime.utcnow()
+#             current_local_time = current_utc_time + timedelta(hours=offset_hours)
+#             current_date = current_local_time.date().isoformat()
+#         else:
+#             print("User's group or timezone not found.")
+#             return
+#
+#         # Check if a record exists for the current date
+#         c.execute(f"""
+#             SELECT pushups_count FROM {DAILY_PUSHUP_RECORD_TABLE}
+#             WHERE user_telegram_id = %s AND date = %s;
+#             """, (telegram_id, current_date))
+#         existing_record = c.fetchone()
+#
+#         if existing_record:
+#             # Update the existing record
+#             new_pushups_count = existing_record[0] + pushups_count_increase
+#             c.execute(f"""
+#                 UPDATE {DAILY_PUSHUP_RECORD_TABLE}
+#                 SET pushups_count = %s
+#                 WHERE user_telegram_id = %s AND date = %s;
+#                 """, (new_pushups_count, telegram_id, current_date))
+#         else:
+#             # Insert a new record
+#             c.execute(f"""
+#                 INSERT INTO {DAILY_PUSHUP_RECORD_TABLE} (user_telegram_id, date, pushups_count)
+#                 VALUES (%s, %s, %s);
+#                 """, (telegram_id, current_date, pushups_count_increase))
+#
+#         conn.commit()
+#     except psycopg2.Error as e:
+#         print(f"Database error: {e}")
+#     finally:
+#         conn.close()
 
 
 # for testing
@@ -288,6 +288,7 @@ def create_pushups(telegram_id, pushups_count_increase, timezone_offset):
         conn.close()
 
 
+
 def upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_TABLE, USERS_TABLE,
                                  DAILY_PUSHUP_RECORD_TABLE):
     with psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name) as conn:
@@ -317,7 +318,7 @@ def upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_
 
 
 # upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_TABLE, USERS_TABLE, DAILY_PUSHUP_RECORD_TABLE)
-generate_database_design()
+#generate_database_design()
 #add_new_group(-1002127852426, 100 ,'Pay RM10', '+08', '100 Pushups or -RM10')
 # create_db()
 # add_new_group(0, 100, 'A virtual group for non-group users')  # Manually specify group_id as 1
@@ -330,7 +331,7 @@ generate_database_design()
 # add_new_group('-1002127852426')
 
 # Sadman 2012089704
-# update_pushups(2012089704, 20)
+create_pushups(123456789, 100, '+1')
 # change_group_timezone(321, '-07')
 # add_new_group(321, 50, "nothing", get_timezone_automatically())
 # print(get_timezone_automatically())
