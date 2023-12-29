@@ -23,7 +23,7 @@ connection = psycopg2.connect(
 
 
 @app.get('/api/users')
-def get_items():
+def get_users():
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM users")
     items = cursor.fetchall()
