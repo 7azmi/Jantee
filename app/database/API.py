@@ -161,5 +161,5 @@ def missed_days_this_month(telegram_id: int):
         raise HTTPException(status_code=404, detail="User or group not found")
 
 
-def run_API():
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("APIPORT", 8000)))
+#def run_API():
+uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
