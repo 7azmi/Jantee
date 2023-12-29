@@ -73,5 +73,5 @@ if __name__ == "__main__":
     # Enable logging
     DefaultConfig.init_logging()
     logging.info(f"PORT: {DefaultConfig.PORT}")
-    main()
+    #main()
     API.run_API()
