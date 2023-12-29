@@ -86,6 +86,40 @@ def get_user_group_name(telegram_id: int):
     cursor.close()
     return {'group_name': result[0] if result else 'No group found'}
 
+@app.get('/api/pushups/streak/{telegram_id}')
+def pushup_streak(telegram_id: int):
+    current_date = datetime.date.today()
+    cursor = connection.cursor()
+
+    # Get the user's pushup goal
+    cursor.execute("SELECT g.pushup_goal FROM groups g JOIN users u ON g.group_id = u.group_id WHERE u.telegram_id = %s", (telegram_id,))
+    pushup_goal = cursor.fetchone()
+    if not pushup_goal:
+        cursor.close()
+        raise HTTPException(status_code=404, detail="User or group not found")
+
+    pushup_goal = pushup_goal[0]
+
+    # Query to check the streak
+    query = """
+    WITH RECURSIVE date_series AS (
+        SELECT %s::date AS date
+        UNION ALL
+        SELECT date - INTERVAL '1 day' FROM date_series WHERE date > (SELECT MIN(date) FROM daily_pushup_record WHERE user_telegram_id = %s)
+    )
+    SELECT COUNT(*) FROM date_series
+    WHERE EXISTS (
+        SELECT 1 FROM daily_pushup_record
+        WHERE user_telegram_id = %s AND date = date_series.date AND pushups_count >= %s
+    )
+    """
+
+    cursor.execute(query, (current_date, telegram_id, telegram_id, pushup_goal))
+    streak_count = cursor.fetchone()[0]
+    cursor.close()
+
+    return {'pushup_streak': streak_count}
+
 
 @app.get('/api/pushups/total/{telegram_id}')
 def total_pushups_done(telegram_id: int):
