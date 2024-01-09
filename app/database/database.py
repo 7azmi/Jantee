@@ -1,9 +1,8 @@
 import os
 import psycopg2
-from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
-import pytz
+#import pytz
 
 # Load environment variables
 load_dotenv("app/.env")
@@ -20,24 +19,26 @@ GROUPS_TABLE = 'groups'
 DAILY_PUSHUP_RECORD_TABLE = 'daily_pushup_record'
 
 
-def create_db():  # not tested
+def create_db():
     with psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name) as conn:
         c = conn.cursor()
-        # Create Groups Table with an additional 'timezone' field and telegram_id as PK
+        # Create Groups Table with additional columns
         c.execute(f"""
             CREATE TABLE IF NOT EXISTS {GROUPS_TABLE} (
                 telegram_id INTEGER PRIMARY KEY,  -- Unique and Primary Key
                 pushup_goal INTEGER,
                 punishment TEXT,
-                timezone TEXT
+                timezone TEXT,
+                language_text TEXT  -- New 'language_text' column
             );
         """)
-        # Create Users Table
+        # Create Users Table with additional columns
         c.execute(f"""
             CREATE TABLE IF NOT EXISTS {USERS_TABLE} (
                 telegram_id INTEGER PRIMARY KEY,
                 group_id INTEGER,
-                FOREIGN KEY (group_id) REFERENCES {GROUPS_TABLE} (telegram_id)
+                FOREIGN KEY (group_id) REFERENCES {GROUPS_TABLE} (telegram_id),
+                language_text TEXT  -- New 'language_text' column
             );
         """)
         # Create Daily Pushup Record Table
@@ -148,7 +149,6 @@ def add_new_group(group_id, pushup_goal, punishment, timezone, group_name):
     create_row(table_name, data)
 
 
-
 def change_group_timezone(group_id, new_timezone):
     table_name = GROUPS_TABLE
     update_data = {
@@ -161,6 +161,19 @@ def change_group_timezone(group_id, new_timezone):
     set_value(table_name, update_data, update_condition)
 
 
+def get_group_timezone(group_id):
+    table_name = GROUPS_TABLE
+    columns = ['timezone']
+    condition = {'group_id': group_id}
+
+    result = get_value(table_name, columns, condition)
+
+    if result:
+        return result[0][0]  # Return the timezone value
+    else:
+        return None  # Return None if no matching group is found
+
+
 def get_timezone_automatically():
     try:
         local_timezone = pytz.timezone('Etc/GMT')
@@ -171,7 +184,7 @@ def get_timezone_automatically():
         return None
 
 
-def add_new_user(telegram_id, group_id):
+def add_new_user(telegram_id, group_id=0):
     table_name = USERS_TABLE
     data = {
         'telegram_id': telegram_id,
@@ -179,6 +192,30 @@ def add_new_user(telegram_id, group_id):
     }
 
     create_row(table_name, data)
+
+
+def check_user_exists(telegram_id):
+    try:
+        conn = create_connection()
+        c = conn.cursor()
+
+        # Check if the user with the given telegram_id exists
+        c.execute(f"SELECT COUNT(*) FROM {USERS_TABLE} WHERE telegram_id = %s;", (telegram_id,))
+        user_count = c.fetchone()[0]
+
+        conn.commit()
+
+        if user_count > 0:
+            return True
+        else:
+            return False
+
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return False
+
+    finally:
+        conn.close()
 
 
 def assign_user_to_group(telegram_id, group_id):
@@ -288,38 +325,259 @@ def create_pushups(telegram_id, pushups_count_increase, timezone_offset):
         conn.close()
 
 
-
-def upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_TABLE, USERS_TABLE,
-                                 DAILY_PUSHUP_RECORD_TABLE):
-    with psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name) as conn:
+def get_pushup_count(user_id, date):
+    try:
+        conn = create_connection()
         c = conn.cursor()
 
-        # Alter group_id in GROUPS_TABLE to BIGINT
-        sql_command = f"ALTER TABLE {GROUPS_TABLE} ALTER COLUMN group_id TYPE BIGINT USING group_id::BIGINT;"
-        print("Executing SQL command:", sql_command)
-        c.execute(sql_command)
+        # Retrieve the pushup count for the given user and date
+        c.execute(f"""
+            SELECT pushups_count FROM {DAILY_PUSHUP_RECORD_TABLE}
+            WHERE user_telegram_id = %s AND date = %s;
+            """, (user_id, date))
+        existing_record = c.fetchone()
 
-        # Alter telegram_id in USERS_TABLE to BIGINT
-        sql_command = f"ALTER TABLE {USERS_TABLE} ALTER COLUMN telegram_id TYPE BIGINT USING telegram_id::BIGINT;"
-        print("Executing SQL command:", sql_command)
-        c.execute(sql_command)
+        if existing_record:
+            return existing_record[0]
+        else:
+            # Return 0 if no record exists for the user and date
+            return 0
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        conn.close()
 
-        # Alter group_id in USERS_TABLE to BIGINT (Foreign Key)
-        sql_command = f"ALTER TABLE {USERS_TABLE} ALTER COLUMN group_id TYPE BIGINT USING group_id::BIGINT;"
-        print("Executing SQL command:", sql_command)
-        c.execute(sql_command)
 
-        # Alter user_telegram_id in DAILY_PUSHUP_RECORD_TABLE to BIGINT
-        sql_command = f"ALTER TABLE {DAILY_PUSHUP_RECORD_TABLE} ALTER COLUMN user_telegram_id TYPE BIGINT USING user_telegram_id::BIGINT;"
-        print("Executing SQL command:", sql_command)
-        c.execute(sql_command)
+def update_user_language(telegram_id, new_language_text):
+    try:
+        conn = create_connection()
+        c = conn.cursor()
 
+        # Update the "language_text" column for the user with the given telegram_id
+        c.execute(f"UPDATE {USERS_TABLE} SET language_text = %s WHERE telegram_id = %s;",
+                  (new_language_text, telegram_id))
         conn.commit()
+        print(f"Updated language for user with telegram_id {telegram_id}.")
+
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+
+    finally:
+        conn.close()
 
 
+def update_group_language(telegram_id, new_language_text):
+    try:
+        conn = create_connection()
+        c = conn.cursor()
+
+        # Update the "language_text" column for the group with the given telegram_id
+        c.execute(f"UPDATE {GROUPS_TABLE} SET language_text = %s WHERE telegram_id = %s;",
+                  (new_language_text, telegram_id))
+        conn.commit()
+        print(f"Updated language for group with telegram_id {telegram_id}.")
+
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+
+    finally:
+        conn.close()
+
+
+def get_user_language(telegram_id):
+    try:
+        conn = create_connection()
+        c = conn.cursor()
+
+        # Retrieve the "language_text" for the user with the given telegram_id
+        c.execute(f"SELECT language_text FROM {USERS_TABLE} WHERE telegram_id = %s;", (telegram_id,))
+        language_text = c.fetchone()
+
+        if language_text:
+            return language_text[0]
+        else:
+            return None
+
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return None
+
+    finally:
+        conn.close()
+
+
+def get_group_language(telegram_id):
+    try:
+        conn = create_connection()
+        c = conn.cursor()
+
+        # Retrieve the "language_text" for the group with the given telegram_id
+        c.execute(f"SELECT language_text FROM {GROUPS_TABLE} WHERE telegram_id = %s;", (telegram_id,))
+        language_text = c.fetchone()
+
+        if language_text:
+            return language_text[0]
+        else:
+            return None
+
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return None
+
+    finally:
+        conn.close()
+
+
+def get_date_by_timezone(timezone_offset):
+    try:
+        offset_hours = int(timezone_offset)
+        current_utc_time = datetime.utcnow()
+        current_local_time = current_utc_time + timedelta(hours=offset_hours)
+        current_date = current_local_time.date().isoformat()
+        return current_date
+    except ValueError:
+        # Handle invalid timezone offset gracefully, e.g., return None or raise an exception
+        return None
+
+
+def is_group_registered(group_id):
+    """Check if the given group is registered in the database."""
+    result = get_value(GROUPS_TABLE, ['telegram_id'], {'telegram_id': group_id})
+    return bool(result)
+
+
+def check_user_group_status(user_id, group_id):
+    """Check the user's group status relative to the given group_id."""
+    user_info = get_value(USERS_TABLE, ['group_id'], {'telegram_id': user_id})
+    if user_info:
+        assigned_group_id = user_info[0][0]
+        if assigned_group_id == group_id:
+            return 'same_group'
+        else:
+            return 'different_group'
+    else:
+        return 'no_group'
+
+
+def assign_user_to_group(user_id, group_id):
+    """Assign the given user to the given group in the database."""
+    # Check if the user already exists in the USERS_TABLE
+    if get_value(USERS_TABLE, ['telegram_id'], {'telegram_id': user_id}):
+        # If the user exists, update the group_id
+        set_value(USERS_TABLE, {'group_id': group_id}, {'telegram_id': user_id})
+    else:
+        # If the user does not exist, insert a new record
+        try:
+            conn = create_connection()
+            c = conn.cursor()
+            c.execute(f"INSERT INTO {USERS_TABLE} (telegram_id, group_id) VALUES (%s, %s)",
+                      (user_id, group_id))
+            conn.commit()
+        except psycopg2.Error as e:
+            print(f"Database error: {e}")
+        finally:
+            conn.close()
+
+
+def get_group_timezone(group_id):
+    """Retrieve the timezone of the given group from the database."""
+    result = get_value(GROUPS_TABLE, ['timezone'], {'telegram_id': group_id})
+    if result:
+        return result[0][0]
+    else:
+        return None
+
+
+def get_daily_pushup_goal(chat_id):
+    """
+    Retrieve the daily pushup goal for a specific group (chat).
+
+    :param chat_id: Telegram ID of the group (chat)
+    :return: The daily pushup goal for the group or None if not found
+    """
+    result = get_value(GROUPS_TABLE, ['pushup_goal'], {'telegram_id': chat_id})
+    if result:
+        return result[0][0]  # Unpack the result (first row, first column)
+    return None
+
+def check_group_registration(group_id):
+    """
+    Check if the group is already registered in the database.
+    :param group_id: Telegram ID of the group.
+    :return: True if registered, False otherwise.
+    """
+    conn = create_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(1) FROM groups WHERE telegram_id = %s", (group_id,))
+            return cur.fetchone()[0] > 0
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def set_pushup_count(group_id, pushup_count):
+    """
+    Set the daily pushup count for a group.
+    :param group_id: Telegram ID of the group.
+    :param pushup_count: The daily pushup count to set.
+    """
+    conn = create_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE groups SET pushup_goal = %s WHERE telegram_id = %s", (pushup_count, group_id))
+            conn.commit()
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        conn.close()
+
+
+
+def set_group_timezone(group_id, timezone):
+    """
+    Set the timezone for a group.
+    :param group_id: Telegram ID of the group.
+    :param timezone: The timezone to set.
+    """
+    conn = create_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE groups SET timezone = %s WHERE telegram_id = %s", (timezone, group_id))
+            conn.commit()
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        conn.close()
+
+
+# Provide the user_id and date in 'YYYY-MM-DD' format
+# user_id = 123456789
+# #date = '2023-12-28'
+#
+# # Provide the timezone offset as a string or integer
+# timezone_offset = "+06"  # or timezone_offset = -1
+#
+# # Call the get_date_by_timezone function
+# date_in_timezone = get_date_by_timezone(timezone_offset)
+#
+# if date_in_timezone is not None:
+#     print(f"Date in timezone {timezone_offset}: {date_in_timezone}")
+# else:
+#     print("Invalid timezone offset.")
+#
+# create_pushups(user_id, 69, timezone_offset)
+# # Call the get_pushup_count function to retrieve the pushup count
+# pushup_count = get_pushup_count(user_id, get_date_by_timezone(timezone_offset))
+#
+#
+# # Display the result
+# print(f"Pushup count for user {user_id} on {date_in_timezone}: {pushup_count}")
 # upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_TABLE, USERS_TABLE, DAILY_PUSHUP_RECORD_TABLE)
-#generate_database_design()
-#add_new_group(-1002127852426, 100 ,'Pay RM10', '+08', '100 Pushups or -RM10')
+# generate_database_design()
+# add_new_group(-1002127852426, 100 ,'Pay RM10', '+08', '100 Pushups or -RM10')
 # create_db()
 # add_new_group(0, 100, 'A virtual group for non-group users')  # Manually specify group_id as 1
 # add_new_group(123, 100, 'Fake group')
@@ -331,7 +589,7 @@ def upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_
 # add_new_group('-1002127852426')
 
 # Sadman 2012089704
-#create_pushups(123456789, 100, '+1')
+# create_pushups(123456789, 100, '+1')
 # change_group_timezone(321, '-07')
 # add_new_group(321, 50, "nothing", get_timezone_automatically())
 # print(get_timezone_automatically())

@@ -14,6 +14,9 @@ from dotenv import load_dotenv
 load_dotenv("app/.env")
 
 
+
+
+
 def error(update, context):
     """Log Errors caused by Updates."""
 
@@ -21,18 +24,46 @@ def error(update, context):
     logging.exception(context.error)
 
 
+
 def main():
     updater = Updater(DefaultConfig.TELEGRAM_TOKEN, use_context=True)
-
     dp = updater.dispatcher
 
     # command handlers
     set_commands_handler(dp)
 
-    # message handler
-    dp.add_handler(MessageHandler(Filters.video_note | Filters.text | Filters.video, echo))
+
+    # Use the custom filter in the MessageHandler
+    #dp.add_handler(MessageHandler(FilterStartsWithUTC.starts_with_utc, handle_timezone_selection))
+    # Create the CallbackQueryHandler with the custom callback function and filter
+
+    # Add the handler to your dispatcher
+    #dp.add_handler(CallbackQueryHandler(timezone_callback, pattern='^timezone:.*$'))
+    dp.add_handler(CallbackQueryHandler(handle_timezone_selection, pattern=r'^[+\-]\d{2}$'))
+
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, group_settings_handler))
+
+    # Add the message handler for group messages
+    dp.add_handler(MessageHandler(Filters.text & (Filters.chat_type.group | Filters.chat_type.supergroup),
+                                  group_text_receiver))
+
+    # Add the message handler for DMs
+    dp.add_handler(MessageHandler(Filters.text & Filters.chat_type.private, dm_text_receiver))
+
+    #dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.video, dm_video_receiver))
+    dp.add_handler(MessageHandler(Filters.chat_type.private & (Filters.video_note | Filters.video), dm_videonote_receiver))
+
+    ## dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.video, group_video_receiver))
+    dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.video_note, group_videonote_receiver))
+
     dp.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.ANY_CHAT_MEMBER))
-    # dp.add_handler(ChatMemberHandler(user_status_update, ChatMemberHandler.CHAT_MEMBER))
+
+    # dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, welcome))
+    # dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, check_rejoin))
+    ## dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, user_added_to_group))
+    dp.add_handler(MessageHandler(Filters.status_update.left_chat_member, user_removed_from_group))
+
+    #dp.add_handler(CallbackQueryHandler(handle_timezone_selection, pattern=r'^timezone:'))
 
     # log all errors
     dp.add_error_handler(error)
@@ -73,5 +104,5 @@ if __name__ == "__main__":
     # Enable logging
     DefaultConfig.init_logging()
     logging.info(f"PORT: {DefaultConfig.PORT}")
-    #main()
-    #API.run_API()
+    main()
+    # API.run_API()
