@@ -4,10 +4,10 @@ import os
 import sys
 from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler
 
-from app.handlers import dm_handlers
+from handlers import dm_handlers
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app.handlers.handlers import *
+from handlers.handlers import *
 from dotenv import load_dotenv
 
 # Load environment variables from a .env file

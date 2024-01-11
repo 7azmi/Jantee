@@ -47,33 +47,34 @@ def handle_videonote_dm(update: Update, context: CallbackContext):
     user_full_name = update.message.from_user.full_name
     pushup_count = count_pushups_from_videonote(update, context, fastapi_endpoint)
 
-    if pushup_count is not None:
-        if pushup_count == 0:
-            to_user(update, user_full_name, "Please record properly, no pushups detected.")
-        elif 1 <= pushup_count <= 4:
-            db.create_pushups(user_id, pushup_count, "+08")
-            to_user(update, user_full_name, f"Got it, I've counted {pushup_count} pushups, but please check if you're working out and recording properly (at least 5 pushups).")
-        elif pushup_count >= 5:
-            if db.is_new_user(user_id):
-                to_user(update, user_full_name,
-                        f"Great! You've done your first {pushup_count} pushups. Now it's time to choose how many pushups a day you want to commit to. (daily goal options are 15, 25, 50, 75, 100, 150, 200)")
-                present_daily_goal_options(user_id, context)
-            else:
-                remaining_pushups = db.get_remaining_pushups_user(update.message.from_user.id)
-                if remaining_pushups <= 0:
-                    congratulatory_message = f"🎉 Congratulations, {user_full_name}! You've completed your daily goal! 🏆"
-                    to_user(update, user_full_name, congratulatory_message)
-                else:
-                    progress_message = f"short positive message: Keep going, {user_full_name}! You've done {pushup_count} pushups and have {remaining_pushups} left for today! 💪"
-                    to_user(update, user_full_name, progress_message)
-
-            db.create_pushups(user_id, pushup_count, "+08")
-            #done_pushups, goal_pushups = db.get_pushup_count_goal(user_id)
-            #update.message.reply_text(text=f"{done_pushups}/{goal_pushups} pushups done! 🏋️‍♂️📈")
-
-    else:
-        # Handle the case where pushup_count is None
+    if pushup_count is None:
         update.message.reply_text(text="There was an error processing your video note. Please try again.")
+        return
+
+    if pushup_count == 0:
+        to_user(update, user_full_name, "Please record properly, no pushups detected.")
+        return
+
+    if 1 <= pushup_count < 5:
+        response_message = f"Short instruction message: Got it, I've counted {pushup_count} pushups, but please check if you're working out and recording properly (at least 5 pushups)."
+    elif pushup_count >= 5:
+        response_message = handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context)
+
+    to_user(update, user_full_name, response_message)
+    db.create_pushups(user_id, pushup_count, "+08")
+
+
+def handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context):
+    if db.is_new_user(user_id):
+        present_daily_goal_options(user_id, context)
+        return f"Great! You've done your first {pushup_count} pushups. Now it's time to choose how many pushups a day you want to commit to. (daily goal options are 15, 25, 50, 75, 100, 150, 200)"
+
+    remaining_pushups = db.get_remaining_pushups_user(update.message.from_user.id)
+    if remaining_pushups <= 0:
+        return f"🎉 Congratulations, {user_full_name}! You've completed your daily goal! 🏆"
+    else:
+        return f"Short progress message: Keep going, You've done {pushup_count} pushups and have {remaining_pushups} left for today! 💪"
+
 
 
 
@@ -117,8 +118,10 @@ def count_pushups_from_videonote(update, context, fastapi_endpoint):
             video_file = update.message.video_note.get_file()
             file_url = video_file.file_path  # This gets the public URL for the video file
             update.message.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
-            update.message.reply_text("counting...")
+            counting_message = update.message.reply_text("counting...")  # Store the counting message
             pushup_count = count_pushups_in_video(file_url, fastapi_endpoint, key)
+            update.message.bot.delete_message(chat_id=update.message.chat_id, message_id=counting_message.message_id)
+            #update.message.bot.edit_message_text(text=f"{pushup_count} pushups", chat_id=update.message.chat_id, message_id=counting_message.message_id)
             return pushup_count
         else:
             raise Exception("No video or video note found in the message.")
