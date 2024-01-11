@@ -2,19 +2,16 @@ import logging
 import logging.config
 import os
 import sys
-from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler
+from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler
 
-from database import API
+from app.handlers import dm_handlers
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app.handlers import *
+from app.handlers.handlers import *
 from dotenv import load_dotenv
 
 # Load environment variables from a .env file
 load_dotenv("app/.env")
-
-
-
 
 
 def error(update, context):
@@ -24,7 +21,6 @@ def error(update, context):
     logging.exception(context.error)
 
 
-
 def main():
     updater = Updater(DefaultConfig.TELEGRAM_TOKEN, use_context=True)
     dp = updater.dispatcher
@@ -32,38 +28,44 @@ def main():
     # command handlers
     set_commands_handler(dp)
 
+    #dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video_dm))
+
+    dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video_dm))
+    dp.add_handler(MessageHandler(Filters.video_note, dm_handlers.handle_videonote_dm))
+    dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
 
     # Use the custom filter in the MessageHandler
-    #dp.add_handler(MessageHandler(FilterStartsWithUTC.starts_with_utc, handle_timezone_selection))
+    # dp.add_handler(MessageHandler(FilterStartsWithUTC.starts_with_utc, handle_timezone_selection))
     # Create the CallbackQueryHandler with the custom callback function and filter
 
     # Add the handler to your dispatcher
-    #dp.add_handler(CallbackQueryHandler(timezone_callback, pattern='^timezone:.*$'))
-    dp.add_handler(CallbackQueryHandler(handle_timezone_selection, pattern=r'^[+\-]\d{2}$'))
-
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, group_settings_handler))
-
-    # Add the message handler for group messages
-    dp.add_handler(MessageHandler(Filters.text & (Filters.chat_type.group | Filters.chat_type.supergroup),
-                                  group_text_receiver))
-
-    # Add the message handler for DMs
-    dp.add_handler(MessageHandler(Filters.text & Filters.chat_type.private, dm_text_receiver))
-
-    #dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.video, dm_video_receiver))
-    dp.add_handler(MessageHandler(Filters.chat_type.private & (Filters.video_note | Filters.video), dm_videonote_receiver))
+    # # dp.add_handler(CallbackQueryHandler(timezone_callback, pattern='^timezone:.*$'))
+    # dp.add_handler(CallbackQueryHandler(handle_timezone_selection, pattern=r'^[+\-]\d{2}$'))
+    #
+    # dp.add_handler(MessageHandler(Filters.text & ~Filters.command, group_settings_handler))
+    #
+    # # Add the message handler for group messages
+    # dp.add_handler(MessageHandler(Filters.text & (Filters.chat_type.group | Filters.chat_type.supergroup),
+    #                               group_text_receiver))
+    #
+    # # Add the message handler for DMs
+    # dp.add_handler(MessageHandler(Filters.text & Filters.chat_type.private, dm_text_receiver))
+    #
+    # # dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.video, dm_video_receiver))
+    # dp.add_handler(
+    #     MessageHandler(Filters.chat_type.private & (Filters.video_note | Filters.video), dm_videonote_receiver))
 
     ## dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.video, group_video_receiver))
-    dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.video_note, group_videonote_receiver))
+    # dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.video_note, group_videonote_receiver))
 
-    dp.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.ANY_CHAT_MEMBER))
+    # dp.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.ANY_CHAT_MEMBER))
 
     # dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, welcome))
     # dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, check_rejoin))
     ## dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, user_added_to_group))
-    dp.add_handler(MessageHandler(Filters.status_update.left_chat_member, user_removed_from_group))
+    # dp.add_handler(MessageHandler(Filters.status_update.left_chat_member, user_removed_from_group))
 
-    #dp.add_handler(CallbackQueryHandler(handle_timezone_selection, pattern=r'^timezone:'))
+    # dp.add_handler(CallbackQueryHandler(handle_timezone_selection, pattern=r'^timezone:'))
 
     # log all errors
     dp.add_error_handler(error)

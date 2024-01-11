@@ -1,8 +1,12 @@
 import os
+from datetime import datetime, timedelta
+
 import psycopg2
+import pytz
 
 from dotenv import load_dotenv
-#import pytz
+
+# import pytz
 
 # Load environment variables
 load_dotenv("app/.env")
@@ -22,90 +26,45 @@ DAILY_PUSHUP_RECORD_TABLE = 'daily_pushup_record'
 def create_db():
     with psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name) as conn:
         c = conn.cursor()
-        # Create Groups Table with additional columns
+
+        # Create Groups Table
         c.execute(f"""
             CREATE TABLE IF NOT EXISTS {GROUPS_TABLE} (
-                telegram_id INTEGER PRIMARY KEY,  -- Unique and Primary Key
+                group_id BIGINT PRIMARY KEY,  -- 'group_id' as Primary Key
                 pushup_goal INTEGER,
                 punishment TEXT,
                 timezone TEXT,
-                language_text TEXT  -- New 'language_text' column
+                group_name TEXT,
+                language_text TEXT
             );
         """)
-        # Create Users Table with additional columns
+
+        # Create Users Table
         c.execute(f"""
             CREATE TABLE IF NOT EXISTS {USERS_TABLE} (
-                telegram_id INTEGER PRIMARY KEY,
-                group_id INTEGER,
-                FOREIGN KEY (group_id) REFERENCES {GROUPS_TABLE} (telegram_id),
-                language_text TEXT  -- New 'language_text' column
+                telegram_id BIGINT PRIMARY KEY,
+                group_id BIGINT,
+                language_text TEXT,
+                joining_date DATE,
+                timezone TEXT,
+                pushup_goal INTEGER,
+                FOREIGN KEY (group_id) REFERENCES {GROUPS_TABLE} (group_id)
             );
         """)
+
         # Create Daily Pushup Record Table
         c.execute(f"""
             CREATE TABLE IF NOT EXISTS {DAILY_PUSHUP_RECORD_TABLE} (
-                user_telegram_id INTEGER,
+                user_telegram_id BIGINT,
                 date DATE,
                 pushups_count INTEGER,
+                sets INTEGER,
                 PRIMARY KEY (user_telegram_id, date),
                 FOREIGN KEY (user_telegram_id) REFERENCES {USERS_TABLE} (telegram_id)
             );
         """)
+
         conn.commit()
-
-
-def generate_database_design():
-    with psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name) as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT table_name, column_name, data_type 
-            FROM information_schema.columns 
-            WHERE table_schema = 'public'
-            ORDER BY table_name, ordinal_position;
-        """)
-
-        current_table = ''
-        for row in c.fetchall():
-            table_name, column_name, data_type = row
-            if table_name != current_table:
-                if current_table:
-                    print('}')
-                print(f'Table: {table_name} {{')
-                current_table = table_name
-            print(f'    {column_name} ({data_type})')
-        print('}')
-
-
-def create_connection():
-    return psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name)
-
-
-def create_row(table_name, data):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
-        columns = ', '.join(data.keys())
-        values = ', '.join(['%s'] * len(data))
-        c.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({values})", list(data.values()))
-        conn.commit()
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-    finally:
-        conn.close()
-
-
-def delete_row(table_name, condition):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
-        condition_str = ' AND '.join([f"{k} = %s" for k in condition])
-        c.execute(f"DELETE FROM {table_name} WHERE {condition_str}", list(condition.values()))
-        conn.commit()
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-    finally:
-        conn.close()
-
 
 def set_value(table_name, data, condition):
     try:
@@ -134,6 +93,61 @@ def get_value(table_name, columns, condition):
         print(f"Database error: {e}")
     finally:
         conn.close()
+
+
+def generate_database_design():
+    with psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT table_name, column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_schema = 'public'
+            ORDER BY table_name, ordinal_position;
+        """)
+
+        current_table = ''
+        for row in c.fetchall():
+            table_name, column_name, data_type = row
+            if table_name != current_table:
+                if current_table:
+                    print('}')
+                print(f'Table: {table_name} {{')
+                current_table = table_name
+            print(f'    {column_name} ({data_type})')
+        print('}')
+
+
+def create_connection():
+    return psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name)
+
+
+def create_row(table_name: object, data: object) -> object:
+    try:
+        conn = create_connection()
+        c = conn.cursor()
+        columns = ', '.join(data.keys())
+        values = ', '.join(['%s'] * len(data))
+        c.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({values})", list(data.values()))
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        conn.close()
+
+
+def delete_row(table_name, condition):
+    try:
+        conn = create_connection()
+        c = conn.cursor()
+        condition_str = ' AND '.join([f"{k} = %s" for k in condition])
+        c.execute(f"DELETE FROM {table_name} WHERE {condition_str}", list(condition.values()))
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        conn.close()
+
+
 
 
 def add_new_group(group_id, pushup_goal, punishment, timezone, group_name):
@@ -184,11 +198,25 @@ def get_timezone_automatically():
         return None
 
 
-def add_new_user(telegram_id, group_id=0):
+def format_timezone(tz_str):
+    """
+    Format the timezone string to standard format.
+    E.g., "+08" -> "UTC+08:00", "-01" -> "UTC-01:00"
+    """
+    # Check if the timezone string is in the expected format
+    if len(tz_str) == 3 and tz_str[0] in ['+', '-'] and tz_str[1:].isdigit():
+        return f"UTC{tz_str}:00"
+    else:
+        return "UTC+00:00"  # Default to UTC if the format is incorrect
+
+
+def add_new_user(telegram_id, joining_date=None, timezone='UTC+08:00', group_id=0):
     table_name = USERS_TABLE
     data = {
         'telegram_id': telegram_id,
-        'group_id': group_id
+        'group_id': group_id,
+        'joining_date': joining_date if joining_date else datetime.now().date(),
+        'timezone': format_timezone(timezone)
     }
 
     create_row(table_name, data)
@@ -298,7 +326,7 @@ def create_pushups(telegram_id, pushups_count_increase, timezone_offset):
 
         # Check if a record exists for the current date
         c.execute(f"""
-            SELECT pushups_count FROM {DAILY_PUSHUP_RECORD_TABLE}
+            SELECT pushups_count, sets FROM {DAILY_PUSHUP_RECORD_TABLE}
             WHERE user_telegram_id = %s AND date = %s;
             """, (telegram_id, current_date))
         existing_record = c.fetchone()
@@ -306,16 +334,17 @@ def create_pushups(telegram_id, pushups_count_increase, timezone_offset):
         if existing_record:
             # Update the existing record
             new_pushups_count = existing_record[0] + pushups_count_increase
+            new_sets = existing_record[1] + 1
             c.execute(f"""
                 UPDATE {DAILY_PUSHUP_RECORD_TABLE}
-                SET pushups_count = %s
+                SET pushups_count = %s, sets = %s
                 WHERE user_telegram_id = %s AND date = %s;
-                """, (new_pushups_count, telegram_id, current_date))
+                """, (new_pushups_count, new_sets, telegram_id, current_date))
         else:
-            # Insert a new record
+            # Insert a new record with 1 set since it's the first entry of the day
             c.execute(f"""
-                INSERT INTO {DAILY_PUSHUP_RECORD_TABLE} (user_telegram_id, date, pushups_count)
-                VALUES (%s, %s, %s);
+                INSERT INTO {DAILY_PUSHUP_RECORD_TABLE} (user_telegram_id, date, pushups_count, sets)
+                VALUES (%s, %s, %s, 1);
                 """, (telegram_id, current_date, pushups_count_increase))
 
         conn.commit()
@@ -323,7 +352,6 @@ def create_pushups(telegram_id, pushups_count_increase, timezone_offset):
         print(f"Database error: {e}")
     finally:
         conn.close()
-
 
 def get_pushup_count(user_id, date):
     try:
@@ -428,7 +456,7 @@ def get_group_language(telegram_id):
         conn.close()
 
 
-def get_date_by_timezone(timezone_offset):
+def get_date_by_timezone(timezone_offset="+08"):
     try:
         offset_hours = int(timezone_offset)
         current_utc_time = datetime.utcnow()
@@ -488,7 +516,7 @@ def get_group_timezone(group_id):
         return None
 
 
-def get_daily_pushup_goal(chat_id):
+def get_daily_pushup_goal_from_group(chat_id):
     """
     Retrieve the daily pushup goal for a specific group (chat).
 
@@ -499,6 +527,19 @@ def get_daily_pushup_goal(chat_id):
     if result:
         return result[0][0]  # Unpack the result (first row, first column)
     return None
+
+def get_daily_pushup_goal_from_user(user_id):
+    """
+    Retrieve the daily pushup goal for a specific group (chat).
+
+    :param chat_id: Telegram ID of the group (chat)
+    :return: The daily pushup goal for the group or None if not found
+    """
+    result = get_value(USERS_TABLE, ['pushup_goal'], {'telegram_id': user_id})
+    if result:
+        return result[0][0]  # Unpack the result (first row, first column)
+    return None
+
 
 def check_group_registration(group_id):
     """
@@ -535,7 +576,6 @@ def set_pushup_count(group_id, pushup_count):
         conn.close()
 
 
-
 def set_group_timezone(group_id, timezone):
     """
     Set the timezone for a group.
@@ -552,6 +592,275 @@ def set_group_timezone(group_id, timezone):
     finally:
         conn.close()
 
+
+# def remaining_pushups(telegram_id, date):
+#     """
+#     Calculate the remaining pushups for a user on a specific date.
+#     """
+#     conn = create_connection()
+#     try:
+#         with conn.cursor() as cur:
+#             # Assuming pushup_goal is stored in the groups table
+#             cur.execute(
+#                 "SELECT pushup_goal FROM groups WHERE group_id = (SELECT group_id FROM users WHERE telegram_id = %s)",
+#                 (telegram_id,))
+#             pushup_goal = cur.fetchone()[0]
+#
+#             cur.execute("SELECT SUM(pushups_count) FROM daily_pushup_record WHERE user_telegram_id = %s AND date = %s",
+#                         (telegram_id, date))
+#             done_today = cur.fetchone()[0] or 0
+#
+#             return max(pushup_goal - done_today, 0)
+#     finally:
+#         conn.close()
+
+from datetime import datetime, timedelta
+
+# def calculate_remaining_pushups(telegram_id):
+#     """
+#     Calculate the remaining pushups for a user for the current date based on their timezone and goal in the users table.
+#     """
+#     conn = create_connection()
+#     try:
+#         with conn.cursor() as cur:
+#             # Get the user's pushup goal and timezone from the users table
+#             cur.execute(
+#                 "SELECT pushup_goal, timezone FROM users WHERE telegram_id = %s",
+#                 (telegram_id,))
+#             result = cur.fetchone()
+#             if not result:
+#                 print("User not found")
+#                 return None
+#
+#             pushup_goal, timezone = result
+#             timezone_offset = int(timezone)
+#             current_date = (datetime.utcnow() + timedelta(hours=timezone_offset)).date()
+#
+#             # Calculate done pushups for the current date
+#             cur.execute("SELECT SUM(pushups_count) FROM daily_pushup_record WHERE user_telegram_id = %s AND date = %s",
+#                         (telegram_id, current_date))
+#             done_today = cur.fetchone()[0] or 0
+#
+#             return max(pushup_goal - done_today, 0)
+#     finally:
+#         conn.close()
+#
+
+def done_pushups(telegram_id, date):
+    """
+    Calculate the total pushups done by a user on a specific date.
+    """
+    conn = create_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT SUM(pushups_count) FROM daily_pushup_record WHERE user_telegram_id = %s AND date = %s",
+                        (telegram_id, date))
+            return cur.fetchone()[0] or 0
+    finally:
+        conn.close()
+
+
+def set_pushup_goal(telegram_id, pushup_goal):
+    """
+    Set the pushup goal for a user.
+    :param telegram_id: Telegram ID of the user.
+    :param pushup_goal: Pushup goal to set.
+    """
+    set_value("users", {"pushup_goal": pushup_goal}, {"telegram_id": telegram_id})
+
+
+def get_pushup_goal(telegram_id):
+    """
+    Get the pushup goal for a user.
+    :param telegram_id: Telegram ID of the user.
+    :return: Pushup goal of the user.
+    """
+    result = get_value("users", ["pushup_goal"], {"telegram_id": telegram_id})
+    return result[0][0] if result else None
+
+
+# not tested
+def count_strike_missed_days(telegram_id):
+    conn = create_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT g.timezone FROM groups g
+                JOIN users u ON g.group_id = u.group_id
+                WHERE u.telegram_id = %s
+                """, (telegram_id,))
+            result = cur.fetchone()
+            if not result:
+                print("User or group not found")
+                return 0
+
+            group_timezone = result[0]
+            timezone_offset = int(group_timezone)
+            current_date = (datetime.utcnow() + timedelta(hours=timezone_offset)).date()
+
+            streak_count = 0
+            for day in range(365):  # Check up to a year
+                check_date = current_date - timedelta(days=day)
+                cur.execute("""
+                    SELECT 1 FROM daily_pushup_record
+                    WHERE user_telegram_id = %s AND date = %s
+                    """, (telegram_id, check_date))
+                record_exists = cur.fetchone()
+
+                if not record_exists:
+                    streak_count += 1
+                else:
+                    break  # Found a day with pushups
+
+            return streak_count
+    finally:
+        conn.close()
+
+
+# not tested
+def count_strike_done_days(telegram_id):
+    conn = create_connection()
+    try:
+        with conn.cursor() as cur:
+            # Get the user's pushup goal and timezone
+            cur.execute("""
+                SELECT g.pushup_goal, g.timezone FROM groups g
+                JOIN users u ON g.group_id = u.group_id
+                WHERE u.telegram_id = %s
+                """, (telegram_id,))
+            result = cur.fetchone()
+            if not result:
+                print("User or group not found")
+                return 0
+
+            pushup_goal, group_timezone = result
+            timezone_offset = int(group_timezone)
+            current_date = (datetime.utcnow() + timedelta(hours=timezone_offset)).date()
+
+            streak_count = 0
+            for day in range(365):  # Check up to a year
+                check_date = current_date - timedelta(days=day)
+                cur.execute("""
+                    SELECT pushups_count FROM daily_pushup_record
+                    WHERE user_telegram_id = %s AND date = %s
+                    """, (telegram_id, check_date))
+                pushups_count = cur.fetchone()
+
+                if check_date == current_date and not pushups_count:
+                    continue  # Don't break streak if today's record is missing
+
+                if pushups_count and pushups_count[0] >= pushup_goal:
+                    streak_count += 1
+                else:
+                    break  # Day missed or goal not met
+
+            return streak_count
+    finally:
+        conn.close()
+
+
+
+def user_state(telegram_id):
+    """
+    Determine the state of the user - new, strikes, or regular.
+    """
+    conn = create_connection()
+    try:
+        with conn.cursor() as cur:
+            # Check if new user
+            cur.execute("SELECT COUNT(1) FROM daily_pushup_record WHERE user_telegram_id = %s", (telegram_id,))
+            if cur.fetchone()[0] == 0:
+                return "New User"
+
+            # Calculate strike missed and done days
+            strike_missed_days = count_strike_missed_days(telegram_id)
+            strike_done_days = count_strike_done_days(telegram_id)
+
+            # Define a regular user based on your criteria
+            if strike_missed_days > 1 or strike_done_days < 3:
+                return f"User with Strikes - Missed: {strike_missed_days}, Done: {strike_done_days}"
+            else:
+                return f"Regular User - Done: {strike_done_days}, Missed: {strike_missed_days}"
+    finally:
+        conn.close()
+
+
+def is_new_user(user_id):
+    conn = create_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(1) FROM daily_pushup_record WHERE user_telegram_id = %s", (user_id,))
+            return cur.fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+def get_remaining_pushups_user(telegram_id):
+    conn = create_connection()
+    c = conn.cursor()
+
+    # Get user's timezone in the format "+08"
+    c.execute(f"SELECT timezone FROM {USERS_TABLE} WHERE telegram_id = %s", (telegram_id,))
+    user_timezone_result = c.fetchone()
+    if not user_timezone_result:
+        print("User timezone not found.")
+        return None
+    user_timezone_str = user_timezone_result[0]
+
+    # Convert the timezone format "+08" to a pytz timezone
+    # Note: This assumes no daylight saving time changes
+    hours_offset = int(user_timezone_str[:3])
+    tz_delta = timedelta(hours=hours_offset)
+    user_timezone = datetime.now(pytz.utc).astimezone(pytz.utc) + tz_delta
+
+    # Determine today's date based on user's timezone
+    today = user_timezone.date()
+
+    # Get user's pushup goal
+    user_goal = get_value(USERS_TABLE, ['pushup_goal'], {'telegram_id': telegram_id})
+    if not user_goal:
+        print("User not found or error in fetching user goal.")
+        return None
+    user_goal = user_goal[0][0]
+
+    # Get total pushups done by the user for today
+    user_done = get_value(DAILY_PUSHUP_RECORD_TABLE, ['COALESCE(SUM(pushups_count), 0)'], {'user_telegram_id': telegram_id, 'date': today})
+    if user_done is None:
+        print("Error in fetching user's pushup count.")
+        return None
+
+    user_done = user_done[0][0]
+
+    # Calculate remaining pushups
+    remaining_pushups = user_goal - user_done
+    return remaining_pushups
+
+
+def get_pushup_count_goal(user_id):
+    try:
+        conn = psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name)
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT pushup_goal FROM {USERS_TABLE} WHERE telegram_id = %s", (user_id,))
+        pushup_goal = cursor.fetchone()
+
+        if pushup_goal is not None:
+            return pushup_goal[0]
+        else:
+            # Return a default value or handle the case when the user is not found
+            return None  # You can modify this as needed
+    except psycopg2.Error as e:
+        print(f"Error retrieving pushup count goal: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
+
+#print(get_remaining_pushups_user(123456789))
+#generate_database_design()
+#create_pushups(123456789, 15, "-08")
+#create_pushups(123456789, 15, "-28")
+#print(count_strike_done_days(123456789))
+#print(user_state(123456789))
+# generate_database_design()
 
 # Provide the user_id and date in 'YYYY-MM-DD' format
 # user_id = 123456789
