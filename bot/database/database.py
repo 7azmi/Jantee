@@ -5,6 +5,7 @@ import psycopg2
 import pytz
 
 from dotenv import load_dotenv
+from psycopg2 import pool
 
 # import pytz
 
@@ -66,9 +67,15 @@ def create_db():
 
         conn.commit()
 
+
+def create_pool(minconn, maxconn, **kwargs):
+    return psycopg2.pool.SimpleConnectionPool(minconn, maxconn, **kwargs)
+
+pool = create_pool(minconn=1, maxconn=20, host=db_host, database=db_name, user=db_user, password=db_password)
+
 def set_value(table_name, data, condition):
+    conn = pool.getconn()
     try:
-        conn = create_connection()
         c = conn.cursor()
         update_str = ', '.join([f"{k} = %s" for k in data])
         condition_str = ' AND '.join([f"{k} = %s" for k in condition])
@@ -78,12 +85,11 @@ def set_value(table_name, data, condition):
     except psycopg2.Error as e:
         print(f"Database error: {e}")
     finally:
-        conn.close()
-
+        pool.putconn(conn)
 
 def get_value(table_name, columns, condition):
+    conn = pool.getconn()
     try:
-        conn = create_connection()
         c = conn.cursor()
         columns_str = ', '.join(columns)
         condition_str = ' AND '.join([f"{k} = %s" for k in condition])
@@ -92,7 +98,7 @@ def get_value(table_name, columns, condition):
     except psycopg2.Error as e:
         print(f"Database error: {e}")
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 
 def generate_database_design():
@@ -117,13 +123,13 @@ def generate_database_design():
         print('}')
 
 
-def create_connection():
-    return psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name)
+# def create_connection():
+#     return psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name)
 
 
-def create_row(table_name: object, data: object) -> object:
+def create_row(table_name, data):
+    conn = pool.getconn()
     try:
-        conn = create_connection()
         c = conn.cursor()
         columns = ', '.join(data.keys())
         values = ', '.join(['%s'] * len(data))
@@ -132,12 +138,11 @@ def create_row(table_name: object, data: object) -> object:
     except psycopg2.Error as e:
         print(f"Database error: {e}")
     finally:
-        conn.close()
-
+        pool.putconn(conn)
 
 def delete_row(table_name, condition):
+    conn = pool.getconn()
     try:
-        conn = create_connection()
         c = conn.cursor()
         condition_str = ' AND '.join([f"{k} = %s" for k in condition])
         c.execute(f"DELETE FROM {table_name} WHERE {condition_str}", list(condition.values()))
@@ -145,7 +150,7 @@ def delete_row(table_name, condition):
     except psycopg2.Error as e:
         print(f"Database error: {e}")
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 
 
@@ -221,29 +226,11 @@ def add_new_user(telegram_id, joining_date=None, timezone='+08', group_id=0):
 
     create_row(table_name, data)
 
-
 def check_user_exists(telegram_id):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
+    result = get_value(USERS_TABLE, ['COUNT(*)'], {'telegram_id': telegram_id})
+    user_count = result[0][0] if result else 0
+    return user_count > 0
 
-        # Check if the user with the given telegram_id exists
-        c.execute(f"SELECT COUNT(*) FROM {USERS_TABLE} WHERE telegram_id = %s;", (telegram_id,))
-        user_count = c.fetchone()[0]
-
-        conn.commit()
-
-        if user_count > 0:
-            return True
-        else:
-            return False
-
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-        return False
-
-    finally:
-        conn.close()
 
 
 def assign_user_to_group(telegram_id, group_id):
@@ -259,60 +246,10 @@ def assign_user_to_group(telegram_id, group_id):
 def remove_user_from_group(telegram_id):
     assign_user_to_group(telegram_id, 0)
 
-
-# def update_pushups(telegram_id, pushups_count_increase):
-#     try:
-#         conn = create_connection()
-#         c = conn.cursor()
-#
-#         # Fetch group_id and timezone offset for the user
-#         c.execute(
-#             f"SELECT g.timezone FROM {USERS_TABLE} u JOIN {GROUPS_TABLE} g ON u.group_id = g.group_id WHERE u.telegram_id = %s;",
-#             (telegram_id,))
-#         timezone_offset = c.fetchone()
-#
-#         if timezone_offset:
-#             offset_hours = int(timezone_offset[0])
-#             current_utc_time = datetime.utcnow()
-#             current_local_time = current_utc_time + timedelta(hours=offset_hours)
-#             current_date = current_local_time.date().isoformat()
-#         else:
-#             print("User's group or timezone not found.")
-#             return
-#
-#         # Check if a record exists for the current date
-#         c.execute(f"""
-#             SELECT pushups_count FROM {DAILY_PUSHUP_RECORD_TABLE}
-#             WHERE user_telegram_id = %s AND date = %s;
-#             """, (telegram_id, current_date))
-#         existing_record = c.fetchone()
-#
-#         if existing_record:
-#             # Update the existing record
-#             new_pushups_count = existing_record[0] + pushups_count_increase
-#             c.execute(f"""
-#                 UPDATE {DAILY_PUSHUP_RECORD_TABLE}
-#                 SET pushups_count = %s
-#                 WHERE user_telegram_id = %s AND date = %s;
-#                 """, (new_pushups_count, telegram_id, current_date))
-#         else:
-#             # Insert a new record
-#             c.execute(f"""
-#                 INSERT INTO {DAILY_PUSHUP_RECORD_TABLE} (user_telegram_id, date, pushups_count)
-#                 VALUES (%s, %s, %s);
-#                 """, (telegram_id, current_date, pushups_count_increase))
-#
-#         conn.commit()
-#     except psycopg2.Error as e:
-#         print(f"Database error: {e}")
-#     finally:
-#         conn.close()
-
-
 # for testing
 def create_pushups(telegram_id, pushups_count_increase, timezone_offset):
+    conn = pool.getconn()
     try:
-        conn = create_connection()
         c = conn.cursor()
 
         if timezone_offset:
@@ -351,109 +288,33 @@ def create_pushups(telegram_id, pushups_count_increase, timezone_offset):
     except psycopg2.Error as e:
         print(f"Database error: {e}")
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 def get_pushup_count(user_id, date):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
-
-        # Retrieve the pushup count for the given user and date
-        c.execute(f"""
-            SELECT pushups_count FROM {DAILY_PUSHUP_RECORD_TABLE}
-            WHERE user_telegram_id = %s AND date = %s;
-            """, (user_id, date))
-        existing_record = c.fetchone()
-
-        if existing_record:
-            return existing_record[0]
-        else:
-            # Return 0 if no record exists for the user and date
-            return 0
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-    finally:
-        conn.close()
+    result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['pushups_count'], {'user_telegram_id': user_id, 'date': date})
+    return result[0][0] if result else 0
 
 
 def update_user_language(telegram_id, new_language_text):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
+    set_value(USERS_TABLE, {'language_text': new_language_text}, {'telegram_id': telegram_id})
 
-        # Update the "language_text" column for the user with the given telegram_id
-        c.execute(f"UPDATE {USERS_TABLE} SET language_text = %s WHERE telegram_id = %s;",
-                  (new_language_text, telegram_id))
-        conn.commit()
-        print(f"Updated language for user with telegram_id {telegram_id}.")
-
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-
-    finally:
-        conn.close()
 
 
 def update_group_language(telegram_id, new_language_text):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
+    set_value(GROUPS_TABLE, {'language_text': new_language_text}, {'telegram_id': telegram_id})
 
-        # Update the "language_text" column for the group with the given telegram_id
-        c.execute(f"UPDATE {GROUPS_TABLE} SET language_text = %s WHERE telegram_id = %s;",
-                  (new_language_text, telegram_id))
-        conn.commit()
-        print(f"Updated language for group with telegram_id {telegram_id}.")
-
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-
-    finally:
-        conn.close()
 
 
 def get_user_language(telegram_id):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
+    result = get_value(USERS_TABLE, ['language_text'], {'telegram_id': telegram_id})
+    return result[0][0] if result else None
 
-        # Retrieve the "language_text" for the user with the given telegram_id
-        c.execute(f"SELECT language_text FROM {USERS_TABLE} WHERE telegram_id = %s;", (telegram_id,))
-        language_text = c.fetchone()
 
-        if language_text:
-            return language_text[0]
-        else:
-            return None
-
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-        return None
-
-    finally:
-        conn.close()
-
+# carry on here
 
 def get_group_language(telegram_id):
-    try:
-        conn = create_connection()
-        c = conn.cursor()
-
-        # Retrieve the "language_text" for the group with the given telegram_id
-        c.execute(f"SELECT language_text FROM {GROUPS_TABLE} WHERE telegram_id = %s;", (telegram_id,))
-        language_text = c.fetchone()
-
-        if language_text:
-            return language_text[0]
-        else:
-            return None
-
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-        return None
-
-    finally:
-        conn.close()
+    result = get_value(GROUPS_TABLE, ['language_text'], {'telegram_id': telegram_id})
+    return result[0][0] if result else None
 
 
 def get_date_by_timezone(timezone_offset="+08"):
@@ -488,23 +349,19 @@ def check_user_group_status(user_id, group_id):
 
 
 def assign_user_to_group(user_id, group_id):
-    """Assign the given user to the given group in the database."""
-    # Check if the user already exists in the USERS_TABLE
     if get_value(USERS_TABLE, ['telegram_id'], {'telegram_id': user_id}):
-        # If the user exists, update the group_id
         set_value(USERS_TABLE, {'group_id': group_id}, {'telegram_id': user_id})
     else:
-        # If the user does not exist, insert a new record
+        conn = pool.getconn()
         try:
-            conn = create_connection()
             c = conn.cursor()
-            c.execute(f"INSERT INTO {USERS_TABLE} (telegram_id, group_id) VALUES (%s, %s)",
-                      (user_id, group_id))
+            c.execute(f"INSERT INTO {USERS_TABLE} (telegram_id, group_id) VALUES (%s, %s)", (user_id, group_id))
             conn.commit()
         except psycopg2.Error as e:
             print(f"Database error: {e}")
         finally:
-            conn.close()
+            pool.putconn(conn)
+
 
 
 def get_group_timezone(group_id):
@@ -542,55 +399,19 @@ def get_daily_pushup_goal_from_user(user_id):
 
 
 def check_group_registration(group_id):
-    """
-    Check if the group is already registered in the database.
-    :param group_id: Telegram ID of the group.
-    :return: True if registered, False otherwise.
-    """
-    conn = create_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(1) FROM groups WHERE telegram_id = %s", (group_id,))
-            return cur.fetchone()[0] > 0
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-        return False
-    finally:
-        conn.close()
+    result = get_value(GROUPS_TABLE, ['COUNT(1)'], {'telegram_id': group_id})
+    return result[0][0] > 0 if result else False
+
 
 
 def set_pushup_count(group_id, pushup_count):
-    """
-    Set the daily pushup count for a group.
-    :param group_id: Telegram ID of the group.
-    :param pushup_count: The daily pushup count to set.
-    """
-    conn = create_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE groups SET pushup_goal = %s WHERE telegram_id = %s", (pushup_count, group_id))
-            conn.commit()
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-    finally:
-        conn.close()
+    set_value(GROUPS_TABLE, {'pushup_goal': pushup_count}, {'telegram_id': group_id})
+
 
 
 def set_group_timezone(group_id, timezone):
-    """
-    Set the timezone for a group.
-    :param group_id: Telegram ID of the group.
-    :param timezone: The timezone to set.
-    """
-    conn = create_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE groups SET timezone = %s WHERE telegram_id = %s", (timezone, group_id))
-            conn.commit()
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-    finally:
-        conn.close()
+    set_value(GROUPS_TABLE, {'timezone': timezone}, {'telegram_id': group_id})
+
 
 
 # def remaining_pushups(telegram_id, date):
@@ -647,17 +468,9 @@ from datetime import datetime, timedelta
 #
 
 def done_pushups(telegram_id, date):
-    """
-    Calculate the total pushups done by a user on a specific date.
-    """
-    conn = create_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT SUM(pushups_count) FROM daily_pushup_record WHERE user_telegram_id = %s AND date = %s",
-                        (telegram_id, date))
-            return cur.fetchone()[0] or 0
-    finally:
-        conn.close()
+    result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['SUM(pushups_count)'], {'user_telegram_id': telegram_id, 'date': date})
+    return result[0][0] if result else 0
+
 
 
 def set_pushup_goal(telegram_id, pushup_goal):
@@ -681,7 +494,7 @@ def get_pushup_goal(telegram_id):
 
 # not tested
 def count_strike_missed_days(telegram_id):
-    conn = create_connection()
+    conn = pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
@@ -714,12 +527,12 @@ def count_strike_missed_days(telegram_id):
 
             return streak_count
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 
 # not tested
 def count_strike_done_days(telegram_id):
-    conn = create_connection()
+    conn = pool.getconn()
     try:
         with conn.cursor() as cur:
             # Get the user's pushup goal and timezone
@@ -756,7 +569,7 @@ def count_strike_done_days(telegram_id):
 
             return streak_count
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 
 
@@ -764,7 +577,7 @@ def user_state(telegram_id):
     """
     Determine the state of the user - new, strikes, or regular.
     """
-    conn = create_connection()
+    conn = pool.getconn()
     try:
         with conn.cursor() as cur:
             # Check if new user
@@ -782,33 +595,23 @@ def user_state(telegram_id):
             else:
                 return f"Regular User - Done: {strike_done_days}, Missed: {strike_missed_days}"
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 
 def is_new_user(user_id):
-    conn = create_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(1) FROM daily_pushup_record WHERE user_telegram_id = %s", (user_id,))
-            return cur.fetchone()[0] == 0
-    finally:
-        conn.close()
+    result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['COUNT(1)'], {'user_telegram_id': user_id})
+    return result[0][0] == 0 if result else False
 
 
 def get_remaining_pushups_user(telegram_id):
-    conn = create_connection()
-    c = conn.cursor()
-
-    # Get user's timezone in the format "+08"
-    c.execute(f"SELECT timezone FROM {USERS_TABLE} WHERE telegram_id = %s", (telegram_id,))
-    user_timezone_result = c.fetchone()
+    # Get user's timezone
+    user_timezone_result = get_value(USERS_TABLE, ['timezone'], {'telegram_id': telegram_id})
     if not user_timezone_result:
         print("User timezone not found.")
         return None
-    user_timezone_str = user_timezone_result[0]
+    user_timezone_str = user_timezone_result[0][0]
 
     # Convert the timezone format "+08" to a pytz timezone
-    # Note: This assumes no daylight saving time changes
     hours_offset = int(user_timezone_str[:3])
     tz_delta = timedelta(hours=hours_offset)
     user_timezone = datetime.now(pytz.utc).astimezone(pytz.utc) + tz_delta
@@ -817,42 +620,110 @@ def get_remaining_pushups_user(telegram_id):
     today = user_timezone.date()
 
     # Get user's pushup goal
-    user_goal = get_value(USERS_TABLE, ['pushup_goal'], {'telegram_id': telegram_id})
-    if not user_goal:
+    user_goal_result = get_value(USERS_TABLE, ['pushup_goal'], {'telegram_id': telegram_id})
+    if not user_goal_result:
         print("User not found or error in fetching user goal.")
         return None
-    user_goal = user_goal[0][0]
+    user_goal = user_goal_result[0][0]
 
     # Get total pushups done by the user for today
-    user_done = get_value(DAILY_PUSHUP_RECORD_TABLE, ['COALESCE(SUM(pushups_count), 0)'], {'user_telegram_id': telegram_id, 'date': today})
-    if user_done is None:
+    user_done_result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['COALESCE(SUM(pushups_count), 0)'], {'user_telegram_id': telegram_id, 'date': today})
+    if user_done_result is None:
         print("Error in fetching user's pushup count.")
         return None
 
-    user_done = user_done[0][0]
+    user_done = user_done_result[0][0]
 
     # Calculate remaining pushups
     remaining_pushups = user_goal - user_done
     return remaining_pushups
 
 
-def get_pushup_count_goal(user_id):
-    try:
-        conn = psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name)
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT pushup_goal FROM {USERS_TABLE} WHERE telegram_id = %s", (user_id,))
-        pushup_goal = cursor.fetchone()
 
-        if pushup_goal is not None:
-            return pushup_goal[0]
-        else:
-            # Return a default value or handle the case when the user is not found
-            return None  # You can modify this as needed
-    except psycopg2.Error as e:
-        print(f"Error retrieving pushup count goal: {e}")
-    finally:
-        if conn is not None:
-            conn.close()
+def get_pushup_count_goal(user_id):
+    # Fetch the pushup goal for the given user_id
+    pushup_goal = get_value(USERS_TABLE, ['pushup_goal'], {'telegram_id': user_id})
+
+    if pushup_goal:
+        return pushup_goal[0][0]  # Return the first element of the first row if exists
+    else:
+        # Return a default value or handle the case when the user is not found
+        return None  # You can modify this as needed
+
+
+
+
+# create a funcion that gets some data from database and calculate the latency
+import time
+
+
+def fetch_data_and_calculate_latency(table_name, columns):
+    """
+    Fetches data from a specified table and measures the latency.
+    """
+    print("starting database reqest now")
+    start_time = time.time()  # Start time before the database operation
+
+    # Performing the database operation
+    data = get_pushup_count_goal(732496348)
+
+    end_time = time.time()  # End time after the database operation
+
+    latency = end_time - start_time  # Calculate latency
+
+    return data, latency
+
+#
+# import psycopg2
+# from psycopg2 import pool
+#
+# minconn = 1
+# maxconn = 100
+#
+# print("before creating a connection")
+# db_pool = psycopg2.pool.SimpleConnectionPool(minconn, maxconn, host=db_host, database=db_name, user=db_user,password=db_password)
+# conn = db_pool.getconn()
+#
+# print("after creating a connection")
+#
+# start_time = time.time()  # Start time before the database operation
+#
+# try:
+#     # Create a new cursor
+#     cur = conn.cursor()
+#
+#     # Execute a query
+#     cur.execute(f"SELECT * FROM {USERS_TABLE}")
+#
+#     # Fetch the result
+#     result = cur.fetchall()
+#
+#     # Print the result
+#     for row in result:
+#         print(row)
+# except Exception as e:
+#     print('Database query error:', e)
+#
+# finally:
+#     # Close the cursor and release the connection back to the pool
+#     if cur is not None:
+#         cur.close()
+#     if conn is not None:
+#         db_pool.putconn(conn)
+#
+#
+#
+# end_time = time.time()  # Start time before the database operation
+# latency = end_time - start_time
+#
+# print(f"after request. Latency: {latency}")
+#
+# print()
+# db_pool.closeall()
+
+data, latency = fetch_data_and_calculate_latency(DAILY_PUSHUP_RECORD_TABLE, ['telegram_id', 'date'])
+
+print(f"Fetched data: {data} | latency: {latency}")
 
 
 #print(get_remaining_pushups_user(732496348))

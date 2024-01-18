@@ -24,15 +24,8 @@ def start_command(update: Update, context: CallbackContext):
         update.message.reply_text(text=instruction_message)
 
         db.add_new_user(update.message.from_user.id)
-    #
-    # else: todo later
-    #     # Handle returning user
-    #     # You can customize this part based on the user's data
-    #     # For example, remind them of their remaining pushups
-    #     remaining_pushups = 10 #db.get_remaining_pushups(user_id)  # Implement this function in your database logic
-    #     if remaining_pushups > 0:
-    #         reminder_message = f"Hello again, {full_name}! You have {remaining_pushups} pushups remaining for today."
-    #     else:
-    #         reminder_message = f"Great work, {full_name}! You've completed today's pushups."
-    #
-    #     update.message.reply_text(text=reminder_message)
+    else:
+        fitness_tip_or_quote = gm.generate_chat_text(full_name,
+                                                     "Remember that the key to any good fitness regime is to create consistency – keep up your push-up training.",
+                                                     "English")
+        context.bot.send_message(chat_id=update.message.chat_id, text=fitness_tip_or_quote)
