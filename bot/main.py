@@ -2,9 +2,10 @@ import logging
 import logging.config
 import os
 import sys
-from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler
-
+from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler, CallbackContext
 from handlers import dm_handlers
+from datetime import time
+import pytz
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from handlers.handlers import *
@@ -21,6 +22,12 @@ def error(update, context):
     logging.exception(context.error)
 
 
+def send_message(context: CallbackContext):
+    message = "Your custom message here"
+    user_ids = [1823406139, 732496348]  # Replace with actual user IDs
+    for user_id in user_ids:
+        context.bot.send_message(chat_id=user_id, text=message)
+
 def main():
     updater = Updater(DefaultConfig.TELEGRAM_TOKEN, use_context=True)
     dp = updater.dispatcher
@@ -33,6 +40,10 @@ def main():
     dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video_dm))
     dp.add_handler(MessageHandler(Filters.video_note, dm_handlers.handle_videonote_dm))
     dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
+
+    jq = updater.job_queue
+    target_time = time(3, 50, 00, tzinfo=pytz.timezone('Asia/Bangkok'))  # Adjust timezone as needed
+    jq.run_daily(send_message, target_time)
 
     # Use the custom filter in the MessageHandler
     # dp.add_handler(MessageHandler(FilterStartsWithUTC.starts_with_utc, handle_timezone_selection))
