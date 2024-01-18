@@ -1,8 +1,8 @@
 from telegram import Update, ChatAction
 from telegram.ext import CallbackContext
 
-from app.gemini import gemini as gm
-from app.database import database as db
+from bot.gemini import gemini as gm
+from bot.database import database as db
 def start_command(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     full_name = update.message.from_user.full_name

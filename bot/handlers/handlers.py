@@ -8,14 +8,14 @@
 # from database import database as db
 # from telegram import Bot, ChatMember
 #
-# import app.data.data
+# import bot.data.data
 #
 # fastapi_endpoint = os.environ.get('AI_API',
 #                                   'http://0.0.0.0:5000/count_pushups')  # 'http://dockerapi-production.up.railway.app/count_pushups')
 #
 #
 from telegram.ext import CommandHandler, Filters, MessageHandler
-from app.handlers import dm_handlers, command_handlers
+from bot.handlers import dm_handlers, command_handlers
 def set_commands_handler(dp):
     dp.add_handler(CommandHandler('start', command_handlers.start_command))
 

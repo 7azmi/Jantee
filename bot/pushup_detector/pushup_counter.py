@@ -4,7 +4,7 @@ import math
 from cvzone.PoseModule import PoseDetector
 
 # Constants
-VIDEO_PATH = 'app/pushup_detector/samples/vid14.mp4'
+VIDEO_PATH = 'bot/pushup_detector/samples/vid14.mp4'
 TRACK_CONFIDENCE = 0.50
 DETECTION_CONFIDENCE = 0.9
 FRAME_SKIP = 3

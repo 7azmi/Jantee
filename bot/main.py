@@ -11,7 +11,7 @@ from handlers.handlers import *
 from dotenv import load_dotenv
 
 # Load environment variables from a .env file
-load_dotenv("app/.env")
+load_dotenv("bot/.env")
 
 
 def error(update, context):

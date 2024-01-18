@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 # import pytz
 
 # Load environment variables
-load_dotenv("app/.env")
+load_dotenv("bot/.env")
 
 # Database credentials
 db_host = os.environ.get("PGHOST", "your_host")
@@ -210,13 +210,13 @@ def format_timezone(tz_str):
         return "UTC+00:00"  # Default to UTC if the format is incorrect
 
 
-def add_new_user(telegram_id, joining_date=None, timezone='UTC+08:00', group_id=0):
+def add_new_user(telegram_id, joining_date=None, timezone='+08', group_id=0):
     table_name = USERS_TABLE
     data = {
         'telegram_id': telegram_id,
         'group_id': group_id,
         'joining_date': joining_date if joining_date else datetime.now().date(),
-        'timezone': format_timezone(timezone)
+        'timezone': timezone
     }
 
     create_row(table_name, data)
@@ -854,6 +854,9 @@ def get_pushup_count_goal(user_id):
         if conn is not None:
             conn.close()
 
+
+#print(get_remaining_pushups_user(732496348))
+#print(get_pushup_goal(732496348))
 #print(get_remaining_pushups_user(123456789))
 #generate_database_design()
 #create_pushups(123456789, 15, "-08")

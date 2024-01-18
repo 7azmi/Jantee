@@ -4,8 +4,8 @@ from cryptography.fernet import Fernet
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
 from telegram.ext import CallbackContext
-from app.database import database as db
-from app.gemini import gemini as gm
+from bot.database import database as db
+from bot.gemini import gemini as gm
 
 fastapi_endpoint = os.environ.get('AI_API',
                                   'http://0.0.0.0:5000/count_pushups')  # 'http://dockerapi-production.up.railway.app/count_pushups')
@@ -56,22 +56,27 @@ def handle_videonote_dm(update: Update, context: CallbackContext):
         return
 
     if 1 <= pushup_count < 5:
+        db.create_pushups(user_id, pushup_count, "+08")
         response_message = f"Short instruction message: Got it, I've counted {pushup_count} pushups, but please check if you're working out and recording properly (at least 5 pushups)."
+
     elif pushup_count >= 5:
+        update.message.reply_text(f"{pushup_count} Pushups✅")
+
         response_message = handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context)
 
     to_user(update, user_full_name, response_message)
-    db.create_pushups(user_id, pushup_count, "+08")
 
 
 def handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context):
     if db.is_new_user(user_id):
         present_daily_goal_options(user_id, context)
+        db.create_pushups(user_id, pushup_count, "+08")
         return f"Great! You've done your first {pushup_count} pushups. Now it's time to choose how many pushups a day you want to commit to. (daily goal options are 15, 25, 50, 75, 100, 150, 200)"
 
+    db.create_pushups(user_id, pushup_count, "+08") #you'll suffer if you move this line somewhere else
     remaining_pushups = db.get_remaining_pushups_user(update.message.from_user.id)
     if remaining_pushups <= 0:
-        return f"🎉 Congratulations, {user_full_name}! You've completed your daily goal! 🏆"
+        return f"Positive message with emojies: 🎉 Congratulations, {user_full_name}! You've completed your {db.get_pushup_goal(user_id)} pushups daily goal! 🏆"
     else:
         return f"Short progress message: Keep going, You've done {pushup_count} pushups and have {remaining_pushups} left for today! 💪"
 

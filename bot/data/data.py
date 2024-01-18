@@ -9,7 +9,7 @@ def load_messages(filename):
         return json.load(file)
 
 # Example usage
-messages = load_messages('app/data/conversations.json')
+messages = load_messages('bot/data/conversations.json')
 
 # Example function to get a message
 def get_message(situation, order='random', language = 'en'):
