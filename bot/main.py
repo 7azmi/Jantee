@@ -22,11 +22,15 @@ def error(update, context):
     logging.exception(context.error)
 
 
-def send_message(context: CallbackContext):
-    message = "Your custom message here"
-    user_ids = [1823406139, 732496348]  # Replace with actual user IDs
-    for user_id in user_ids:
-        context.bot.send_message(chat_id=user_id, text=message)
+def send_summary_to_users(context: CallbackContext):
+    try:
+        message = "Your custom message here"
+        user_ids = [1823406139, 732496348]  # Replace with actual user IDs
+        for user_id in user_ids:
+            context.bot.send_message(chat_id=user_id, text=message)
+    except Exception as e:
+        # Handle the exception here, you can log it or take other actions as needed
+        print(f"An error occurred: {str(e)}")
 
 def main():
     updater = Updater(DefaultConfig.TELEGRAM_TOKEN, use_context=True)
@@ -42,8 +46,8 @@ def main():
     dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
 
     jq = updater.job_queue
-    target_time = time(3, 50, 00, tzinfo=pytz.timezone('Asia/Bangkok'))  # Adjust timezone as needed
-    jq.run_daily(send_message, target_time)
+    target_time = time(0, 0, 0, tzinfo=pytz.timezone('Asia/Singapore'))  # Adjust timezone as needed
+    jq.run_daily(send_summary_to_users, target_time)
 
     # Use the custom filter in the MessageHandler
     # dp.add_handler(MessageHandler(FilterStartsWithUTC.starts_with_utc, handle_timezone_selection))

@@ -23,7 +23,6 @@ USERS_TABLE = 'users'
 GROUPS_TABLE = 'groups'
 DAILY_PUSHUP_RECORD_TABLE = 'daily_pushup_record'
 
-
 def create_db():
     with psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name) as conn:
         c = conn.cursor()
@@ -32,11 +31,9 @@ def create_db():
         c.execute(f"""
             CREATE TABLE IF NOT EXISTS {GROUPS_TABLE} (
                 group_id BIGINT PRIMARY KEY,  -- 'group_id' as Primary Key
-                pushup_goal INTEGER,
                 punishment TEXT,
                 timezone TEXT,
-                group_name TEXT,
-                language_text TEXT
+                group_name TEXT
             );
         """)
 
@@ -66,6 +63,8 @@ def create_db():
         """)
 
         conn.commit()
+
+### Rest of the code remains the same
 
 
 def create_pool(minconn, maxconn, **kwargs):
@@ -665,7 +664,7 @@ def fetch_data_and_calculate_latency(table_name, columns):
     start_time = time.time()  # Start time before the database operation
 
     # Performing the database operation
-    data = get_pushup_count_goal(732496348)
+    data = check_user_exists(732496348)#get_pushup_count_goal(732496348)
 
     end_time = time.time()  # End time after the database operation
 
@@ -673,59 +672,12 @@ def fetch_data_and_calculate_latency(table_name, columns):
 
     return data, latency
 
-#
-# import psycopg2
-# from psycopg2 import pool
-#
-# minconn = 1
-# maxconn = 100
-#
-# print("before creating a connection")
-# db_pool = psycopg2.pool.SimpleConnectionPool(minconn, maxconn, host=db_host, database=db_name, user=db_user,password=db_password)
-# conn = db_pool.getconn()
-#
-# print("after creating a connection")
-#
-# start_time = time.time()  # Start time before the database operation
-#
-# try:
-#     # Create a new cursor
-#     cur = conn.cursor()
-#
-#     # Execute a query
-#     cur.execute(f"SELECT * FROM {USERS_TABLE}")
-#
-#     # Fetch the result
-#     result = cur.fetchall()
-#
-#     # Print the result
-#     for row in result:
-#         print(row)
-# except Exception as e:
-#     print('Database query error:', e)
-#
-# finally:
-#     # Close the cursor and release the connection back to the pool
-#     if cur is not None:
-#         cur.close()
-#     if conn is not None:
-#         db_pool.putconn(conn)
-#
-#
-#
-# end_time = time.time()  # Start time before the database operation
-# latency = end_time - start_time
-#
-# print(f"after request. Latency: {latency}")
-#
-# print()
-# db_pool.closeall()
 
-data, latency = fetch_data_and_calculate_latency(DAILY_PUSHUP_RECORD_TABLE, ['telegram_id', 'date'])
+#data, latency = fetch_data_and_calculate_latency(DAILY_PUSHUP_RECORD_TABLE, ['telegram_id', 'date'])
 
-print(f"Fetched data: {data} | latency: {latency}")
-
-
+#print(f"Fetched data: {data} | latency: {latency}")
+create_db()
+generate_database_design()
 #print(get_remaining_pushups_user(732496348))
 #print(get_pushup_goal(732496348))
 #print(get_remaining_pushups_user(123456789))
