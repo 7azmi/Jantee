@@ -42,21 +42,21 @@ def handle_video_dm(update: Update, context: CallbackContext):
     with open(gif_file_path, 'rb') as gif_file:
         context.bot.send_animation(chat_id=user_id, animation=gif_file)
 
-def handle_videonote_dm(update: Update, context: CallbackContext):
+async def handle_videonote_dm(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     user_full_name = update.message.from_user.full_name
-    pushup_count = count_pushups_from_videonote(update, context, fastapi_endpoint)
+    pushup_count = await count_pushups_from_videonote(update, context, fastapi_endpoint)
 
     if pushup_count is None:
-        update.message.reply_text(text="There was an error processing your video note. Please try again.")
+        await update.message.reply_text(text="There was an error processing your video note. Please try again.")
         return
 
     if pushup_count == 0:
-        to_user(update, user_full_name, "Please record properly, no pushups detected.")
+        await to_user(update, user_full_name, "Please record properly, no pushups detected.")
         return
 
     if 1 <= pushup_count < 5:
-        db.create_pushups(user_id, pushup_count, "+08")
+        db.create_pushups(user_id, pushup_count)
         response_message = f"Short instruction message: Got it, I've counted {pushup_count} pushups, but please check if you're working out and recording properly (at least 5 pushups)."
 
     elif pushup_count >= 5:
@@ -64,13 +64,13 @@ def handle_videonote_dm(update: Update, context: CallbackContext):
 
         response_message = handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context)
 
-    to_user(update, user_full_name, response_message)
+    await to_user(update, user_full_name, response_message)
 
 
 def handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context):
     if db.is_new_user(user_id):
         present_daily_goal_options(user_id, context)
-        db.create_pushups(user_id, pushup_count, "+08")
+        db.create_pushups(user_id, pushup_count)
         return f"Great! You've done your first {pushup_count} pushups. Now it's time to choose how many pushups a day you want to commit to. (daily goal options are 15, 25, 50, 75, 100, 150, 200)"
 
     db.create_pushups(user_id, pushup_count, "+08") #you'll suffer if you move this line somewhere else
@@ -115,17 +115,17 @@ def send_encrypted_video_to_fastapi(data, fastapi_endpoint):
         return None
 
 
-def count_pushups_from_videonote(update, context, fastapi_endpoint):
+async def count_pushups_from_videonote(update, context, fastapi_endpoint):
     try:
         key = load_fernet_key()
 
         if update.message.video_note:
-            video_file = update.message.video_note.get_file()
+            video_file = await update.message.video_note.get_file()
             file_url = video_file.file_path  # This gets the public URL for the video file
-            update.message.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
-            counting_message = update.message.reply_text("counting...")  # Store the counting message
+            await update.message.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
+            counting_message = await update.message.reply_text("counting...")  # Store the counting message
             pushup_count = count_pushups_in_video(file_url, fastapi_endpoint, key)
-            update.message.bot.delete_message(chat_id=update.message.chat_id, message_id=counting_message.message_id)
+            await update.message.bot.delete_message(chat_id=update.message.chat_id, message_id=counting_message.message_id)
             #update.message.bot.edit_message_text(text=f"{pushup_count} pushups", chat_id=update.message.chat_id, message_id=counting_message.message_id)
             return pushup_count
         else:
@@ -328,7 +328,7 @@ def count_pushups_in_video(video_url, fastapi_endpoint, key):
 #         return None, None  # Return None values if there was an error
 
 # message to user
-def to_user(update: Update, user_info, context):
+async def to_user(update: Update, user_info, context):
     user_id = update.message.from_user.id
-    update.message.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
-    update.message.reply_text(text=gm.generate_chat_text(user_info, context, "English"))#for now
+    await update.message.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
+    await update.message.reply_text(text=gm.generate_chat_text(user_info, context))

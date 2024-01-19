@@ -56,10 +56,22 @@ def generate_prompt(user_info, context, language):
     return prompt
 
 
-def generate_chat_text(user_info, context, language):
+def generate_chat_text(user_info, context, language="English"):
     prompt = generate_prompt(user_info, context, language)
-    response = model.generate_content(prompt)
-    return response.text
+
+    try:
+        response = model.generate_content(prompt)
+
+        # Check if the response is a simple text response
+        if hasattr(response, 'text'):
+            return response.text
+        # Handle multi-part responses
+        elif hasattr(response, 'result') and hasattr(response.result, 'parts'):
+            return ''.join(part.text for part in response.result.parts)
+        else:
+            return "Received an unexpected response format from the model."
+    except Exception as error:
+        return f"An error occurred when generating chat text: {str(error)}"
 
 
 

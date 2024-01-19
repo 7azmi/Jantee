@@ -3,9 +3,12 @@ import logging.config
 import os
 import sys
 from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler, CallbackContext
+
+import bot
 from handlers import dm_handlers
 from datetime import time
 import pytz
+import bot.bot_clock as bc
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from handlers.handlers import *
@@ -22,15 +25,8 @@ def error(update, context):
     logging.exception(context.error)
 
 
-def send_summary_to_users(context: CallbackContext):
-    try:
-        message = "Your custom message here"
-        user_ids = [1823406139, 732496348]  # Replace with actual user IDs
-        for user_id in user_ids:
-            context.bot.send_message(chat_id=user_id, text=message)
-    except Exception as e:
-        # Handle the exception here, you can log it or take other actions as needed
-        print(f"An error occurred: {str(e)}")
+
+
 
 def main():
     updater = Updater(DefaultConfig.TELEGRAM_TOKEN, use_context=True)
@@ -45,9 +41,8 @@ def main():
     dp.add_handler(MessageHandler(Filters.video_note, dm_handlers.handle_videonote_dm))
     dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
 
-    jq = updater.job_queue
-    target_time = time(0, 0, 0, tzinfo=pytz.timezone('Asia/Singapore'))  # Adjust timezone as needed
-    jq.run_daily(send_summary_to_users, target_time)
+
+    bc.setup_daily_summary(updater)
 
     # Use the custom filter in the MessageHandler
     # dp.add_handler(MessageHandler(FilterStartsWithUTC.starts_with_utc, handle_timezone_selection))
@@ -106,7 +101,7 @@ class DefaultConfig:
     PORT = int(os.environ.get("PORT", 5000))
     TELEGRAM_TOKEN = os.environ.get("API_TELEGRAM", "")
     MODE = os.environ.get("MODE", "webhook")
-    WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
+    WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://427e-219-92-138-126.ngrok-free.app")
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
     @staticmethod

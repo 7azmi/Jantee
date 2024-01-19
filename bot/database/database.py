@@ -64,14 +64,33 @@ def create_db():
 
         conn.commit()
 
-### Rest of the code remains the same
-
 
 def create_pool(minconn, maxconn, **kwargs):
     return psycopg2.pool.SimpleConnectionPool(minconn, maxconn, **kwargs)
 
 pool = create_pool(minconn=1, maxconn=20, host=db_host, database=db_name, user=db_user, password=db_password)
 
+# database design:
+# Table: daily_pushup_record {
+#     user_telegram_id (bigint)
+#     date (date)
+#     pushups_count (integer)
+#     sets (integer)
+# }
+# Table: groups {
+#     group_id (bigint)
+#     punishment (text)
+#     timezone (text)
+#     group_name (text)
+# }
+# Table: users {
+#     telegram_id (bigint)
+#     group_id (bigint)
+#     language_text (text)
+#     joining_date (date)
+#     timezone (text)
+#     pushup_goal (integer)
+# }
 def set_value(table_name, data, condition):
     conn = pool.getconn()
     try:
@@ -246,7 +265,7 @@ def remove_user_from_group(telegram_id):
     assign_user_to_group(telegram_id, 0)
 
 # for testing
-def create_pushups(telegram_id, pushups_count_increase, timezone_offset):
+def create_pushups(telegram_id, pushups_count_increase, timezone_offset="+08"):
     conn = pool.getconn()
     try:
         c = conn.cursor()
@@ -673,11 +692,84 @@ def fetch_data_and_calculate_latency(table_name, columns):
     return data, latency
 
 
+def fetch_user_pushup_data():
+    users_pushup_data = []
+    try:
+        conn = pool.getconn()
+        c = conn.cursor()
+
+        # Fetch all users with their pushup goals
+        c.execute("SELECT telegram_id, pushup_goal FROM users")
+        users = c.fetchall()
+
+        today_date = datetime.now(pytz.timezone('UTC')).astimezone(pytz.timezone('Asia/Singapore')).date()
+
+        for user in users:
+            user_id, pushup_goal = user
+
+            # Fetch today's pushup count for the user
+            c.execute(
+                "SELECT COALESCE(SUM(pushups_count), 0) FROM daily_pushup_record WHERE user_telegram_id = %s AND date = %s",
+                (user_id, today_date))
+            done_pushups = c.fetchone()[0]
+
+            # Calculate remaining pushups
+            remaining_pushups = max(0, pushup_goal - done_pushups)
+
+            users_pushup_data.append((user_id, done_pushups, remaining_pushups))
+
+        conn.commit()
+        return users_pushup_data
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        return []
+    finally:
+        pool.putconn(conn)
+
+
+
+# def fetch_users_by_timezone(timezone):
+#     # Get list of users, their done pushups and pushup goal based on timezone
+#     user_condition = {'timezone': timezone}
+#     user_columns = ['telegram_id', 'pushup_goal']
+#     user_data = get_value('users', user_columns, user_condition)
+#
+#     # Prepare user data dict
+#     users_info = {user[0]: {'goal': user[1]} for user in user_data}
+#
+#     # Fetch done pushups data for each user
+#     for user_id in users_info.keys():
+#         pushup_condition = {'user_telegram_id': user_id}
+#         pushup_columns = ['pushups_count']
+#         pushup_data = get_value('daily_pushup_record', pushup_columns, pushup_condition)
+#         done_pushups = sum(pushup[0] for pushup in pushup_data)
+#         users_info[user_id]['done'] = done_pushups
+#
+#     return users_info
+#
+# def prepare_user_info(users_info):
+#     info_strings = []   # List to store user info strings
+#
+#     # Iterate over all users and prepare their pushup information
+#     for telegram_id, pushup_info in users_info.items():
+#         done_pushups = pushup_info['done']
+#         goal_pushups = pushup_info['goal']
+#         remaining_pushups = max(0, goal_pushups - done_pushups)
+#         user_name = telegram_id  # Here you need to retrieve the user name based on telegram_id
+#         # Append user info string to the list
+#         info_strings.append(f'User: {user_name}\nDone: {done_pushups}\nGoal: {goal_pushups}\nRemaining: {remaining_pushups}')
+#
+#     # Join all info strings with a separator and return
+#     return '\n\n'.join(info_strings)
+#
+# users_info = fetch_users_by_timezone('+08')
+# print(prepare_user_info(users_info))
+
 #data, latency = fetch_data_and_calculate_latency(DAILY_PUSHUP_RECORD_TABLE, ['telegram_id', 'date'])
 
 #print(f"Fetched data: {data} | latency: {latency}")
-create_db()
-generate_database_design()
+#create_db()
+#generate_database_design()
 #print(get_remaining_pushups_user(732496348))
 #print(get_pushup_goal(732496348))
 #print(get_remaining_pushups_user(123456789))
