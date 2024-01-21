@@ -1,5 +1,5 @@
 from telegram.ext import CallbackContext
-from bot.database import database as db
+from database import database as db
 from datetime import time, timedelta, date, datetime
 import pytz
 

@@ -1,5 +1,4 @@
 import os
-
 from cryptography.fernet import Fernet
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
