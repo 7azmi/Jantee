@@ -4,11 +4,7 @@ import os
 import sys
 from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler, CallbackContext
 
-import bot
-from handlers import dm_handlers
-from datetime import time
-import pytz
-import bot.bot_clock as bc
+import bot_clock as bc
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from handlers.handlers import *
