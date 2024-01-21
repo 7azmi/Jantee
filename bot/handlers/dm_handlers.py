@@ -42,29 +42,55 @@ def handle_video_dm(update: Update, context: CallbackContext):
     with open(gif_file_path, 'rb') as gif_file:
         context.bot.send_animation(chat_id=user_id, animation=gif_file)
 
-async def handle_videonote_dm(update: Update, context: CallbackContext):
+
+import threading
+
+def handle_videonote_dm(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     user_full_name = update.message.from_user.full_name
-    pushup_count = await count_pushups_from_videonote(update, context, fastapi_endpoint)
 
-    if pushup_count is None:
-        await update.message.reply_text(text="There was an error processing your video note. Please try again.")
-        return
+    # Reply immediately to avoid delays
+    update.message.reply_text(f"Counting pushups, please wait...")
 
-    if pushup_count == 0:
-        await to_user(update, user_full_name, "Please record properly, no pushups detected.")
-        return
+    # Start the pushup counting in a separate thread
+    threading.Thread(target=count_pushups_and_respond, args=(update, context, fastapi_endpoint, user_id)).start()
 
-    if 1 <= pushup_count < 5:
-        db.create_pushups(user_id, pushup_count)
-        response_message = f"Short instruction message: Got it, I've counted {pushup_count} pushups, but please check if you're working out and recording properly (at least 5 pushups)."
+def count_pushups_and_respond(update, context, fastapi_endpoint, user_id):
+    try:
+        pushup_count = count_pushups_from_videonote(update, context, fastapi_endpoint) # This is the API request
 
-    elif pushup_count >= 5:
-        update.message.reply_text(f"{pushup_count} Pushups✅")
+        # Once the pushup count is available, send the response
+        context.bot.send_message(chat_id=user_id, text=f"You have {pushup_count} pushups.")
+    except Exception as e:
+        context.bot.send_message(chat_id=user_id, text="There was an error processing your video note. Please try again.")
 
-        response_message = handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context)
 
-    await to_user(update, user_full_name, response_message)
+# def handle_videonote_dm(update: Update, context: CallbackContext):
+#     user_id = update.message.from_user.id
+#     user_full_name = update.message.from_user.full_name
+#     update.message.reply_text(f"counting...")
+#     pushup_count = count_pushups_from_videonote(update, context, fastapi_endpoint) # api request takes 15 seconds
+#
+#     update.message.reply_text(f"you have {pushup_count}")
+
+    # if pushup_count is None:
+    #     update.message.reply_text(text="There was an error processing your video note. Please try again.")
+    #     return
+    #
+    # if pushup_count == 0:
+    #     to_user(update, user_full_name, "Please record properly, no pushups detected.")
+    #     return
+    #
+    # if 1 <= pushup_count < 5:
+    #     db.create_pushups(user_id, pushup_count)
+    #     response_message = f"Short instruction message: Got it, I've counted {pushup_count} pushups, but please check if you're working out and recording properly (at least 5 pushups)."
+    #
+    # elif pushup_count >= 5:
+    #     update.message.reply_text(f"{pushup_count} Pushups✅")
+    #
+    #     response_message = handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context)
+    #
+    # to_user(update, user_full_name, response_message)
 
 
 def handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context):
@@ -115,18 +141,14 @@ def send_encrypted_video_to_fastapi(data, fastapi_endpoint):
         return None
 
 
-async def count_pushups_from_videonote(update, context, fastapi_endpoint):
+def count_pushups_from_videonote(update, context, fastapi_endpoint):
     try:
         key = load_fernet_key()
 
         if update.message.video_note:
-            video_file = await update.message.video_note.get_file()
+            video_file = update.message.video_note.get_file()
             file_url = video_file.file_path  # This gets the public URL for the video file
-            await update.message.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
-            counting_message = await update.message.reply_text("counting...")  # Store the counting message
             pushup_count = count_pushups_in_video(file_url, fastapi_endpoint, key)
-            await update.message.bot.delete_message(chat_id=update.message.chat_id, message_id=counting_message.message_id)
-            #update.message.bot.edit_message_text(text=f"{pushup_count} pushups", chat_id=update.message.chat_id, message_id=counting_message.message_id)
             return pushup_count
         else:
             raise Exception("No video or video note found in the message.")
@@ -328,7 +350,7 @@ def count_pushups_in_video(video_url, fastapi_endpoint, key):
 #         return None, None  # Return None values if there was an error
 
 # message to user
-async def to_user(update: Update, user_info, context):
+def to_user(update: Update, user_info, context):
     user_id = update.message.from_user.id
-    await update.message.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
-    await update.message.reply_text(text=gm.generate_chat_text(user_info, context))
+    update.message.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
+    update.message.reply_text(text=gm.generate_chat_text(user_info, context))

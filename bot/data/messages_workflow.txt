@@ -1,0 +1,33 @@
+Good, for almost every interaction between the player and Lucy there are texts I need you to generate. messages style or taste must based on Lucy's persona. It must feel human to interact with Lucy but first, I need you to create Lucy's persona. I'm thinking of a tough enthusiast encouraging female to male users that makes them do pushups in a great communication sense. Tell me, in your opinion, what Lucy persona should be considering project requirements?
+
+
+
+Okay, let's move on to interaction messages between Lucy and Users. the persona you suggested is fantastic. I wanna see how you will convert that fancy description to real messages. I need you to generate messages for Lucy in these situations:
+
+
+1- When a user sends /Start (Start command)
+	1.1 A new user [message variation]
+	1.2 User already in the database (give him the same instructions but in brief.
+2- When A user sends a videonote
+	2.1 in-group videonote message
+		2.1.1 very first video note of counted pushups (first counted pushups, it should be a very welcoming message from Lucy, consider using emojis) [message variation]
+		2.1.2 first videonote of the day //Here is where you should send tips also
+		2.1.3 middle videonote [message variation]
+		2.1.4 last videonote //when a user finishes his daily pushups. I think famous quotes are best written here. Also consider using emojies since it's an adrinaline moment
+		2.1.5 one-take videonote //when a user completes his pushups in one video [message variation]
+	2.2 DM videonote
+		2.2.1 First time, when learning how Lucy counter works (Should do just 5 pushups)
+			2.2.1.1 Five pushups done 
+			2.2.1.2 Less than five
+			2.2.1.3 More than five
+			2.2.1.4 Zero Pushups Recognised
+		2.2.2 After first time // I think you can send some tips on pushups
+	2.3 Upload video //wrong format, Lucy only accepts videonotes
+	2.4 An accedintal videonote (too short)
+3- When it's Midnight // generate a summary list of who did not perform their pushups assigned with the punishment, it should also send a warning message to kick the users with two absences a row in front of everyone. This message should trigger him through shame.
+
+4- When Lucy is added to a group
+	4.1 A new group in database//Lucy here Should tell users to set up daily pushup numbers, punishment, and timezone. This message is very important, it should tell users what pushup range is best for them and the reason for punishment and timezone (timezone is the daily deadline for pushups)
+	4.1 a group that Lucy has been in before. 
+	
+5- When an Admin changes/requests a change of group rules (later)
