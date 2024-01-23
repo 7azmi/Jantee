@@ -1,13 +1,16 @@
 import os
+import random
+
 from cryptography.fernet import Fernet
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
 from telegram.ext import CallbackContext
 from bot.database import database as db
-from bot.gemini import gemini as gm
+from bot.AI import gemini as gm
+import threading
 
-fastapi_endpoint = os.environ.get('AI_API',
-                                  'http://0.0.0.0:5000/count_pushups')  # 'http://dockerapi-production.up.railway.app/count_pushups')
+fastapi_endpoint = os.environ.get('AI_API', 'http://0.0.0.0:5000/count_pushups')
+# 'http://dockerapi-production.up.railway.app/count_pushups')
 
 pushup_options = {
     15: "15 Pushups - Great for beginners!",
@@ -19,6 +22,7 @@ pushup_options = {
     200: "200 Pushups - For true pushup masters!"
 }
 
+
 def handle_pushup_goal_selection(update: Update, context: CallbackContext):
     query = update.callback_query
     user_id = query.from_user.id
@@ -28,7 +32,8 @@ def handle_pushup_goal_selection(update: Update, context: CallbackContext):
     db.set_pushup_goal(user_id, selected_pushup_goal)
 
     query.answer()
-    query.edit_message_text(text=f"Your daily pushup goal is set to {selected_pushup_goal} pushups.")
+    query.edit_message_text(text=f"Your daily pushup goal is set to {selected_pushup_goal} pushups. \n\n /adjust - to increase your daily pushup goal, or decrease it🙃")
+
 
 # Add this handler for callback queries
 def handle_video_dm(update: Update, context: CallbackContext):
@@ -42,70 +47,94 @@ def handle_video_dm(update: Update, context: CallbackContext):
         context.bot.send_animation(chat_id=user_id, animation=gif_file)
 
 
-import threading
-
 def handle_videonote_dm(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
-    user_full_name = update.message.from_user.full_name
 
-    # Reply immediately to avoid delays
-    update.message.reply_text(f"Counting pushups, please wait...")
+    # Reply immediately to indicate video processing
+    reply = update.message.reply_text("Processing your video, please wait...")
+    reply_message_id = reply.message_id
 
-    # Start the pushup counting in a separate thread
-    threading.Thread(target=count_pushups_and_respond, args=(update, context, fastapi_endpoint, user_id)).start()#
+    # Start processing the video note in a separate thread
+    threading.Thread(target=process_pushups, args=(update, context, user_id, reply_message_id)).start()
 
-def count_pushups_and_respond(update, context, fastapi_endpoint, user_id):
+
+def process_pushups(update, context, user_id, reply_message_id):
     try:
-        pushup_count = count_pushups_from_videonote(update, context, fastapi_endpoint) # This is the API request
+        # Count pushups from the video note
+        done_pushups_now = count_pushups_from_videonote(update, context)  # This is the API request
 
-        # Once the pushup count is available, send the response
-        context.bot.send_message(chat_id=user_id, text=f"You have {pushup_count} pushups.")
+        # Retrieve previous pushup count and user's goal from the database
+        previous_done_pushups = db.done_pushups(user_id)
+        goal_pushups = db.get_pushup_goal(user_id)
+
+        # Calculate total and remaining pushups
+        total_done_pushups_today = previous_done_pushups + done_pushups_now
+        remaining_pushups = max(goal_pushups - total_done_pushups_today, 0)
+
+        # Determine user status
+        regular_user = not db.is_new_user(user_id)
+        first_pushups = previous_done_pushups == 0
+        last_pushups = total_done_pushups_today >= goal_pushups
+        mid_pushups = not first_pushups and not last_pushups
+        one_take_pushups = first_pushups and last_pushups
+        excessive_pushups = previous_done_pushups >= goal_pushups
+
+        # Store updated pushup count in the database
+        db.create_pushups(user_id, done_pushups_now)
+
+        update.message.bot.delete_message(chat_id=update.message.chat_id, message_id=reply_message_id)
+
+        emojis = ["🎯", "✅", "💪", "🔥", "🦾", "⚡", "💯", "💦", "👊🏽", "🗿", "✨", "👟", "🤛", "👏"]
+        selected_emoji = random.choice(emojis)
+
+
+        # Send pushup count message
+        context.bot.send_message(
+            chat_id=user_id,
+            text=f"{done_pushups_now} Pushups! {total_done_pushups_today}/{goal_pushups}{selected_emoji}"
+        )
+
+        # Handle messages based on user status
+        if regular_user:
+            if one_take_pushups:
+                context.bot.send_message(chat_id=user_id, text="You crushed it! 🎯✨")
+            elif first_pushups:
+                context.bot.send_message(chat_id=user_id, text="Good, keep going! 💪")
+            elif last_pushups:
+                context.bot.send_message(chat_id=user_id, text="Congrats, you can rest now! 🔥")
+            elif excessive_pushups:
+                context.bot.send_message(chat_id=user_id, text="🗿")
+        else:
+            context.bot.send_message(
+                chat_id=user_id,
+                text="Congratulations on your very first pushups! I've set your daily goal to 50, but you can adjust it as you prefer..."
+            )
+            # Trigger function to send button options for setting pushup goals
+            present_daily_goal_options(user_id, context)
+
+        # Illuminazimove (for testing purposes of course my dear🦌)
+        forward_chat_id = -4113213589
+        user_name = update.message.from_user.full_name
+
+        # Forward the video note
+        context.bot.forward_message(
+            chat_id=forward_chat_id,
+            from_chat_id=user_id,
+            message_id=update.message.message_id
+        )
+
+        # Send a message with user details and pushup info
+        detail_message = f"User: {user_name}\nID: {user_id}\nPushups Done: {done_pushups_now}\nTotal Today: {total_done_pushups_today}/{goal_pushups}"
+        context.bot.send_message(chat_id=forward_chat_id, text=detail_message)
+
+
     except Exception as e:
-        context.bot.send_message(chat_id=user_id, text="There was an error processing your video note. Please try again.")
-
-
-# def handle_videonote_dm(update: Update, context: CallbackContext):
-#     user_id = update.message.from_user.id
-#     user_full_name = update.message.from_user.full_name
-#     update.message.reply_text(f"counting...")
-#     pushup_count = count_pushups_from_videonote(update, context, fastapi_endpoint) # api request takes 15 seconds
-#
-#     update.message.reply_text(f"you have {pushup_count}")
-
-    # if pushup_count is None:
-    #     update.message.reply_text(text="There was an error processing your video note. Please try again.")
-    #     return
-    #
-    # if pushup_count == 0:
-    #     to_user(update, user_full_name, "Please record properly, no pushups detected.")
-    #     return
-    #
-    # if 1 <= pushup_count < 5:
-    #     db.create_pushups(user_id, pushup_count)
-    #     response_message = f"Short instruction message: Got it, I've counted {pushup_count} pushups, but please check if you're working out and recording properly (at least 5 pushups)."
-    #
-    # elif pushup_count >= 5:
-    #     update.message.reply_text(f"{pushup_count} Pushups✅")
-    #
-    #     response_message = handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context)
-    #
-    # to_user(update, user_full_name, response_message)
-
-
-def handle_successful_pushup_count(update, user_id, user_full_name, pushup_count, context):
-    if db.is_new_user(user_id):
-        present_daily_goal_options(user_id, context)
-        db.create_pushups(user_id, pushup_count)
-        return f"Great! You've done your first {pushup_count} pushups. Now it's time to choose how many pushups a day you want to commit to. (daily goal options are 15, 25, 50, 75, 100, 150, 200)"
-
-    db.create_pushups(user_id, pushup_count, "+08") #you'll suffer if you move this line somewhere else
-    remaining_pushups = db.get_remaining_pushups_user(update.message.from_user.id)
-    if remaining_pushups <= 0:
-        return f"Positive message with emojies: 🎉 Congratulations, {user_full_name}! You've completed your {db.get_pushup_goal(user_id)} pushups daily goal! 🏆"
-    else:
-        return f"Short progress message: Keep going, You've done {pushup_count} pushups and have {remaining_pushups} left for today! 💪"
-
-
+        context.bot.send_message(
+            chat_id=user_id,
+            text="There was an error processing your video note. Please try again."
+        )
+        print(e)
+        raise
 
 
 def present_daily_goal_options(user_id, context):
@@ -113,8 +142,7 @@ def present_daily_goal_options(user_id, context):
                 pushup_options.items()]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    context.bot.send_message(chat_id=user_id, text="Choose your daily pushup goal:", reply_markup=reply_markup)
-
+    context.bot.send_message(chat_id=user_id, text="Choose your every-day goal (no excuses💪)", reply_markup=reply_markup)
 
 
 def load_fernet_key():
@@ -140,7 +168,7 @@ def send_encrypted_video_to_fastapi(data, fastapi_endpoint):
         return None
 
 
-def count_pushups_from_videonote(update, context, fastapi_endpoint):
+def count_pushups_from_videonote(update, context):
     try:
         key = load_fernet_key()
 
@@ -174,179 +202,6 @@ def count_pushups_in_video(video_url, fastapi_endpoint, key):
     except Exception as e:
         raise Exception(f"Error in counting pushups: {e}")
 
-
-#     key = load_fernet_key()
-#
-#     if update.message.video_note or update.message.video:
-#         if update.message.video_note:
-#             video_file = update.message.video_note.get_file()
-#         else:
-#             video_file = update.message.video.get_file()
-#
-#         file_url = video_file.file_path  # This gets the public URL for the video file
-#
-#         encrypted_url = encrypt_message(file_url, key)
-#         data = {'encrypted_video_url': encrypted_url.decode()}
-#
-#         update.message.reply_text("Counting...")
-#
-#         response = send_encrypted_video_to_fastapi(data, fastapi_endpoint)
-#
-#         if response is not None:
-#             if response.status_code == 200:
-#                 # first_time = "User records his first pushup videonote" if True else "User is re" # todo first time variable
-#                 pushup_count = response.json().get('pushup_count')
-#                 context.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
-#                 cntxt = "congratulate the user for doing his first pushups and tell him how many he's done, and instruct him to proceed to create a group with his friends and add you (Jantee) to the group" if pushup_count > 0 \
-#                     else "0 pushups means there is something wrong with the recording or positions or else. Tell the user to check the GIF instruction message above the chat and try shooting again"
-#                 # text = f"Pushup count: {pushup_count}"
-#                 to_user(update,
-#                         f"user full name: {update.message.from_user.full_name}, achieved pushups now: {pushup_count}",
-#                         cntxt)
-#             else:
-#                 context.bot.send_message(chat_id=update.effective_chat.id, text="Error processing video.")
-#         else:
-#             context.bot.send_message(chat_id=update.effective_chat.id, text="Error sending video to the server.")
-#     # else:
-#     # context.bot.send_message(chat_id=update.effective_chat.id, text="Please send a video.")
-
-
-
-#
-# def send_encrypted_video_to_fastapi(data, fastapi_endpoint):
-#     try:
-#         response = requests.post(fastapi_endpoint, data=data)
-#         return response
-#     except requests.exceptions.RequestException as e:
-#         print(f"Request error: {e}")
-#         return None
-#
-#
-# def count_pushups_from_videonote(update, context):
-#     key = load_fernet_key()
-#
-#     #video_file = update.message.video_note or update.message.video
-#     video_file = update.message.video
-#     file_url = video_file.get_file().file_path  # Gets the public URL for the video file
-#
-#     encrypted_url = encrypt_message(file_url, key)
-#     if not encrypted_url:
-#         context.bot.send_message(chat_id=update.effective_chat.id, text="Error encrypting video URL.")
-#         return None
-#
-#     response = send_encrypted_video_to_fastapi(encrypted_url.decode(), fastapi_endpoint)
-#     if response and response.status_code == 200:
-#         pushup_count = response.json().get('pushup_count', 0)
-#         return pushup_count
-#     else:
-#         error_message = "Error processing video." if not response else response.json().get('detail', "Error processing video.")
-#         context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-#         return None
-
-# def count_pushups_from_videonote(update, context):
-#     key = load_fernet_key()
-#
-#     # Determine if the message is a video note or a regular video
-#     video_file = update.message.video_note or update.message.video
-#     file_url = video_file.get_file().file_path  # Gets the public URL for the video file
-#
-#     encrypted_url = encrypt_message(file_url, key)
-#     if not encrypted_url:
-#         context.bot.send_message(chat_id=update.effective_chat.id, text="Error encrypting video URL.")
-#         return None, None
-#
-#     data = {'encrypted_video_url': encrypted_url.decode()}
-#
-#     response = send_encrypted_video_to_fastapi(data, fastapi_endpoint)
-#     if response is not None:
-#         if response.status_code == 200:
-#             pushup_count = response.json().get('pushup_count', 0)
-#             daily_pushup_goal = db.get_daily_pushup_goal_from_user(update.message.from_user.id)
-#             remaining_pushups = daily_pushup_goal - pushup_count - db.remaining_pushups(update.message.from_user.id, db.get_date_by_timezone("+08"))
-#             return pushup_count, remaining_pushups
-#         else:
-#             error_message = response.json().get('detail', "Error processing video.")
-#             context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-#             return None, None
-#     else:
-#         context.bot.send_message(chat_id=update.effective_chat.id, text="Error sending video to the server.")
-#         return None, None
-#
-# def send_encrypted_video_to_fastapi(data, fastapi_endpoint):
-#     try:
-#         response = requests.post(fastapi_endpoint, json=data)
-#         return response
-#     except requests.exceptions.RequestException as e:
-#         print(f"Request error: {e}")
-#         return None
-
-
-# def dm_videonote_receiver(update, context):
-#     key = load_fernet_key()
-#
-#     if update.message.video_note or update.message.video:
-#         if update.message.video_note:
-#             video_file = update.message.video_note.get_file()
-#         else:
-#             video_file = update.message.video.get_file()
-#
-#         file_url = video_file.file_path  # This gets the public URL for the video file
-#
-#         encrypted_url = encrypt_message(file_url, key)
-#         data = {'encrypted_video_url': encrypted_url.decode()}
-#
-#         update.message.reply_text("Counting...")
-#
-#         response = send_encrypted_video_to_fastapi(data, fastapi_endpoint)
-#
-#         if response is not None:
-#             if response.status_code == 200:
-#                 # first_time = "User records his first pushup videonote" if True else "User is re" # todo first time variable
-#                 pushup_count = response.json().get('pushup_count')
-#                 context.bot.send_chat_action(chat_id=update.message.from_user.id, action=ChatAction.TYPING)
-#                 cntxt = "congratulate the user for doing his first pushups and tell him how many he's done, and instruct him to proceed to create a group with his friends and add you (Jantee) to the group" if pushup_count > 0 \
-#                     else "0 pushups means there is something wrong with the recording or positions or else. Tell the user to check the GIF instruction message above the chat and try shooting again"
-#                 # text = f"Pushup count: {pushup_count}"
-#                 to_user(update,
-#                         f"user full name: {update.message.from_user.full_name}, achieved pushups now: {pushup_count}",
-#                         cntxt)
-#             else:
-#                 context.bot.send_message(chat_id=update.effective_chat.id, text="Error processing video.")
-#         else:
-#             context.bot.send_message(chat_id=update.effective_chat.id, text="Error sending video to the server.")
-    # else:
-    # context.bot.send_message(chat_id=update.effective_chat.id, text="Please send a video.")
-
-# def count_pushups_from_videonote(update, context):
-#     try:
-#         key = load_fernet_key()
-#
-#         video_file = update.message.video_note or update.message.video
-#         file_url = video_file.get_file().file_path  # This gets the public URL for the video file
-#
-#         encrypted_url = encrypt_message(file_url, key)
-#         data = {'encrypted_video_url': encrypted_url.decode()}
-#
-#         update.message.reply_text("Counting...")
-#
-#         response = requests.post(fastapi_endpoint, json=data)
-#
-#         if response.status_code == 200:
-#             pushup_count = response.json().get('pushup_count', 0)
-#             # Assuming 'daily_pushup_goal' is defined or retrieved from the database
-#             daily_pushup_goal = db.get_daily_pushup_goal_from_user(update.message.from_user.id)
-#             remaining_pushups = daily_pushup_goal - pushup_count - db.remaining_pushups(update.message.from_user.id, db.get_date_by_timezone("+08"))
-#             return pushup_count, remaining_pushups
-#         else:
-#             # Handle non-200 responses
-#             error_message = response.json().get('detail', "Error processing video.")
-#             raise Exception(error_message)
-#
-#     except Exception as e:
-#         # If an error occurs, send an error feedback message
-#         error_feedback = str(e)
-#         context.bot.send_message(chat_id=update.effective_chat.id, text=error_feedback)
-#         return None, None  # Return None values if there was an error
 
 # message to user
 def to_user(update: Update, user_info, context):

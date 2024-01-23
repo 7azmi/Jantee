@@ -17,8 +17,11 @@
 from telegram.ext import CommandHandler, Filters, MessageHandler
 from bot.handlers import dm_handlers, command_handlers
 def set_commands_handler(dp):
+    command_handlers.load_quotes()
+
     dp.add_handler(CommandHandler('start', command_handlers.start_command))
     dp.add_handler(CommandHandler('test', command_handlers.test_command_handler))
+    dp.add_handler(CommandHandler('adjust', command_handlers.adjust_command_handler))
 
     # dp.add_handler(CommandHandler("getpicture", get_profile_picture))
 #

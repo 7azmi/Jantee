@@ -25,7 +25,7 @@ chat_response:
 """,
     **parameters
 )
-print(f"Response from Model: {response.text}")
+#print(f"Response from Model: {response.text}")
 # async def execute_in_parallel(n):
 #     with ThreadPoolExecutor() as executor:
 #         loop = asyncio.get_event_loop()

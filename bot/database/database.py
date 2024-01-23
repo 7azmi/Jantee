@@ -23,6 +23,7 @@ USERS_TABLE = 'users'
 GROUPS_TABLE = 'groups'
 DAILY_PUSHUP_RECORD_TABLE = 'daily_pushup_record'
 
+
 def create_db():
     with psycopg2.connect(host=db_host, user=db_user, password=db_password, database=db_name) as conn:
         c = conn.cursor()
@@ -68,7 +69,9 @@ def create_db():
 def create_pool(minconn, maxconn, **kwargs):
     return psycopg2.pool.SimpleConnectionPool(minconn, maxconn, **kwargs)
 
+
 pool = create_pool(minconn=1, maxconn=20, host=db_host, database=db_name, user=db_user, password=db_password)
+
 
 # database design:
 # Table: daily_pushup_record {
@@ -104,6 +107,7 @@ def set_value(table_name, data, condition):
         print(f"Database error: {e}")
     finally:
         pool.putconn(conn)
+
 
 def get_value(table_name, columns, condition):
     conn = pool.getconn()
@@ -158,6 +162,7 @@ def create_row(table_name, data):
     finally:
         pool.putconn(conn)
 
+
 def delete_row(table_name, condition):
     conn = pool.getconn()
     try:
@@ -169,8 +174,6 @@ def delete_row(table_name, condition):
         print(f"Database error: {e}")
     finally:
         pool.putconn(conn)
-
-
 
 
 def add_new_group(group_id, pushup_goal, punishment, timezone, group_name):
@@ -233,22 +236,25 @@ def format_timezone(tz_str):
         return "UTC+00:00"  # Default to UTC if the format is incorrect
 
 
-def add_new_user(telegram_id, joining_date=None, timezone='+08', group_id=0):
+
+def add_new_user(telegram_id, pushup_goal = 50, joining_date=None, timezone='+08', group_id=0):
     table_name = USERS_TABLE
     data = {
         'telegram_id': telegram_id,
         'group_id': group_id,
-        'joining_date': joining_date if joining_date else datetime.now().date(),
-        'timezone': timezone
+        'language_text': "English", # for now
+        'joining_date': joining_date if joining_date else datetime.now(pytz.timezone(timezone)).date(), # you may change it to UTC +8 or else..
+        'timezone': timezone,
+        'pushup_goal': pushup_goal
     }
 
     create_row(table_name, data)
+
 
 def check_user_exists(telegram_id):
     result = get_value(USERS_TABLE, ['COUNT(*)'], {'telegram_id': telegram_id})
     user_count = result[0][0] if result else 0
     return user_count > 0
-
 
 
 def assign_user_to_group(telegram_id, group_id):
@@ -263,6 +269,7 @@ def assign_user_to_group(telegram_id, group_id):
 
 def remove_user_from_group(telegram_id):
     assign_user_to_group(telegram_id, 0)
+
 
 # for testing
 def create_pushups(telegram_id, pushups_count_increase, timezone_offset="+08"):
@@ -308,6 +315,7 @@ def create_pushups(telegram_id, pushups_count_increase, timezone_offset="+08"):
     finally:
         pool.putconn(conn)
 
+
 def get_pushup_count(user_id, date):
     result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['pushups_count'], {'user_telegram_id': user_id, 'date': date})
     return result[0][0] if result else 0
@@ -317,10 +325,8 @@ def update_user_language(telegram_id, new_language_text):
     set_value(USERS_TABLE, {'language_text': new_language_text}, {'telegram_id': telegram_id})
 
 
-
 def update_group_language(telegram_id, new_language_text):
     set_value(GROUPS_TABLE, {'language_text': new_language_text}, {'telegram_id': telegram_id})
-
 
 
 def get_user_language(telegram_id):
@@ -381,7 +387,6 @@ def assign_user_to_group(user_id, group_id):
             pool.putconn(conn)
 
 
-
 def get_group_timezone(group_id):
     """Retrieve the timezone of the given group from the database."""
     result = get_value(GROUPS_TABLE, ['timezone'], {'telegram_id': group_id})
@@ -389,47 +394,17 @@ def get_group_timezone(group_id):
         return result[0][0]
     else:
         return None
-
-
-def get_daily_pushup_goal_from_group(chat_id):
-    """
-    Retrieve the daily pushup goal for a specific group (chat).
-
-    :param chat_id: Telegram ID of the group (chat)
-    :return: The daily pushup goal for the group or None if not found
-    """
-    result = get_value(GROUPS_TABLE, ['pushup_goal'], {'telegram_id': chat_id})
-    if result:
-        return result[0][0]  # Unpack the result (first row, first column)
-    return None
-
-def get_daily_pushup_goal_from_user(user_id):
-    """
-    Retrieve the daily pushup goal for a specific group (chat).
-
-    :param chat_id: Telegram ID of the group (chat)
-    :return: The daily pushup goal for the group or None if not found
-    """
-    result = get_value(USERS_TABLE, ['pushup_goal'], {'telegram_id': user_id})
-    if result:
-        return result[0][0]  # Unpack the result (first row, first column)
-    return None
-
-
 def check_group_registration(group_id):
     result = get_value(GROUPS_TABLE, ['COUNT(1)'], {'telegram_id': group_id})
     return result[0][0] > 0 if result else False
-
 
 
 def set_pushup_count(group_id, pushup_count):
     set_value(GROUPS_TABLE, {'pushup_goal': pushup_count}, {'telegram_id': group_id})
 
 
-
 def set_group_timezone(group_id, timezone):
     set_value(GROUPS_TABLE, {'timezone': timezone}, {'telegram_id': group_id})
-
 
 
 # def remaining_pushups(telegram_id, date):
@@ -454,6 +429,7 @@ def set_group_timezone(group_id, timezone):
 #         conn.close()
 
 from datetime import datetime, timedelta
+
 
 # def calculate_remaining_pushups(telegram_id):
 #     """
@@ -485,10 +461,11 @@ from datetime import datetime, timedelta
 #         conn.close()
 #
 
-def done_pushups(telegram_id, date):
-    result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['SUM(pushups_count)'], {'user_telegram_id': telegram_id, 'date': date})
-    return result[0][0] if result else 0
+def done_pushups(telegram_id, date=get_date_by_timezone()):
+    result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['SUM(pushups_count)'],
+                       {'user_telegram_id': telegram_id, 'date': date})
 
+    return result[0][0] if result and result[0] and result[0][0] is not None else 0
 
 
 def set_pushup_goal(telegram_id, pushup_goal):
@@ -590,7 +567,6 @@ def count_strike_done_days(telegram_id):
         pool.putconn(conn)
 
 
-
 def user_state(telegram_id):
     """
     Determine the state of the user - new, strikes, or regular.
@@ -645,7 +621,8 @@ def get_remaining_pushups_user(telegram_id):
     user_goal = user_goal_result[0][0]
 
     # Get total pushups done by the user for today
-    user_done_result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['COALESCE(SUM(pushups_count), 0)'], {'user_telegram_id': telegram_id, 'date': today})
+    user_done_result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['COALESCE(SUM(pushups_count), 0)'],
+                                 {'user_telegram_id': telegram_id, 'date': today})
     if user_done_result is None:
         print("Error in fetching user's pushup count.")
         return None
@@ -657,18 +634,15 @@ def get_remaining_pushups_user(telegram_id):
     return remaining_pushups
 
 
-
-def get_pushup_count_goal(user_id):
-    # Fetch the pushup goal for the given user_id
-    pushup_goal = get_value(USERS_TABLE, ['pushup_goal'], {'telegram_id': user_id})
-
-    if pushup_goal:
-        return pushup_goal[0][0]  # Return the first element of the first row if exists
-    else:
-        # Return a default value or handle the case when the user is not found
-        return None  # You can modify this as needed
-
-
+# def get_pushup_count_goal(user_id):
+#     # Fetch the pushup goal for the given user_id
+#     pushup_goal = get_value(USERS_TABLE, ['pushup_goal'], {'telegram_id': user_id})
+#
+#     if pushup_goal:
+#         return pushup_goal[0][0]  # Return the first element of the first row if exists
+#     else:
+#         # Return a default value or handle the case when the user is not found
+#         return None  # You can modify this as needed
 
 
 # create a funcion that gets some data from database and calculate the latency
@@ -683,7 +657,7 @@ def fetch_data_and_calculate_latency(table_name, columns):
     start_time = time.time()  # Start time before the database operation
 
     # Performing the database operation
-    data = check_user_exists(732496348)#get_pushup_count_goal(732496348)
+    data = check_user_exists(732496348)  # get_pushup_count_goal(732496348)
 
     end_time = time.time()  # End time after the database operation
 
@@ -726,8 +700,7 @@ def fetch_user_pushup_data():
     finally:
         pool.putconn(conn)
 
-
-
+#print(is_new_user(1823406139))
 # def fetch_users_by_timezone(timezone):
 #     # Get list of users, their done pushups and pushup goal based on timezone
 #     user_condition = {'timezone': timezone}
@@ -765,19 +738,19 @@ def fetch_user_pushup_data():
 # users_info = fetch_users_by_timezone('+08')
 # print(prepare_user_info(users_info))
 
-#data, latency = fetch_data_and_calculate_latency(DAILY_PUSHUP_RECORD_TABLE, ['telegram_id', 'date'])
+# data, latency = fetch_data_and_calculate_latency(DAILY_PUSHUP_RECORD_TABLE, ['telegram_id', 'date'])
 
-#print(f"Fetched data: {data} | latency: {latency}")
-#create_db()
-#generate_database_design()
-#print(get_remaining_pushups_user(732496348))
-#print(get_pushup_goal(732496348))
-#print(get_remaining_pushups_user(123456789))
-#generate_database_design()
-#create_pushups(123456789, 15, "-08")
-#create_pushups(123456789, 15, "-28")
-#print(count_strike_done_days(123456789))
-#print(user_state(123456789))
+# print(f"Fetched data: {data} | latency: {latency}")
+# create_db()
+# generate_database_design()
+# print(get_remaining_pushups_user(732496348))
+# print(get_pushup_goal(732496348))
+# print(get_remaining_pushups_user(123456789))
+# generate_database_design()
+# create_pushups(123456789, 15, "-08")
+# create_pushups(123456789, 15, "-28")
+# print(count_strike_done_days(123456789))
+# print(user_state(123456789))
 # generate_database_design()
 
 # Provide the user_id and date in 'YYYY-MM-DD' format

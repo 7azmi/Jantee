@@ -79,19 +79,19 @@ def generate_parallel_chat_texts(gemini_ai, user_info, context, language, n):
 
 
 # Usage
-api_keys = ["GEMINI_KEY1", "GEMINI_KEY2", "GEMINI_KEY3", "GEMINI_KEY4"]
-gemini_ai = GeminiAI(api_keys)
-
-user_info = {"name": "John Doe"}
-context = "User did 10 pushups (generate short message)"
-language = "English"
-
-n = 5  # Number of requests you want to make
-responses = []
-
-for _ in range(n):
-    response = gemini_ai.generate_chat_text(user_info, context, language)
-    print(response)
+# api_keys = ["GEMINI_KEY1", "GEMINI_KEY2", "GEMINI_KEY3", "GEMINI_KEY4"]
+# gemini_ai = GeminiAI(api_keys)
+#
+# user_info = {"name": "John Doe"}
+# context = "User did 10 pushups (generate short message)"
+# language = "English"
+#
+# n = 5  # Number of requests you want to make
+# responses = []
+#
+# for _ in range(n):
+#     response = gemini_ai.generate_chat_text(user_info, context, language)
+#     print(response)
     #responses.append(response
 #
 # for response in responses:
