@@ -1,3 +1,6 @@
+import threading
+import time
+
 from telegram import Update, ChatAction
 from telegram.ext import CallbackContext
 
@@ -29,3 +32,19 @@ def start_command(update: Update, context: CallbackContext):
                                                      "Remember that the key to any good fitness regime is to create consistency – keep up your push-up training.",
                                                      "English")
         context.bot.send_message(chat_id=update.message.chat_id, text=fitness_tip_or_quote)
+
+def test_command_handler(update: Update, context: CallbackContext):
+    # Reply immediately to acknowledge the command
+    update.message.reply_text("Test started, please wait...")
+
+    # Start the process in a separate thread
+    threading.Thread(target=wait_and_respond, args=(update, context)).start()
+
+def wait_and_respond(update: Update, context: CallbackContext):
+    # Wait for 15 seconds
+    time.sleep(15)
+
+    # Send the feedback message
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Hi")
+
+# Add the handler for the '/test' command to the dispatcher
