@@ -52,7 +52,7 @@ def handle_videonote_dm(update: Update, context: CallbackContext):
     update.message.reply_text(f"Counting pushups, please wait...")
 
     # Start the pushup counting in a separate thread
-    threading.Thread(target=count_pushups_and_respond, args=(update, context, fastapi_endpoint, user_id)).start()
+    threading.Thread(target=count_pushups_and_respond, args=(update, context, fastapi_endpoint, user_id)).start()#
 
 def count_pushups_and_respond(update, context, fastapi_endpoint, user_id):
     try:
