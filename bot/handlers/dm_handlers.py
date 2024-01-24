@@ -61,11 +61,11 @@ def handle_videonote_dm(update: Update, context: CallbackContext):
 def process_pushups(update, context, user_id, reply_message_id):
     try:
         # Count pushups from the video note
-        done_pushups_now = count_pushups_from_videonote(update, context)  # This is the API request
+        done_pushups_now = int(count_pushups_from_videonote(update, context))  # This is the API request
 
         # Retrieve previous pushup count and user's goal from the database
-        previous_done_pushups = db.done_pushups(user_id)
-        goal_pushups = db.get_pushup_goal(user_id)
+        previous_done_pushups = int(db.done_pushups(user_id))
+        goal_pushups = int(db.get_pushup_goal(user_id))
 
         # Calculate total and remaining pushups
         total_done_pushups_today = previous_done_pushups + done_pushups_now
