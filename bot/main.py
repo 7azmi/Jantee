@@ -38,8 +38,8 @@ def main():
     dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
 
 
-    bc.setup_daily_summary(updater)
-
+    #bc.setup_daily_summary(updater)
+    bc.setup_slacker_reminder(updater)
     # Use the custom filter in the MessageHandler
     # dp.add_handler(MessageHandler(FilterStartsWithUTC.starts_with_utc, handle_timezone_selection))
     # Create the CallbackQueryHandler with the custom callback function and filter
