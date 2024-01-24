@@ -243,7 +243,7 @@ def add_new_user(telegram_id, pushup_goal = 50, joining_date=None, timezone='+08
         'telegram_id': telegram_id,
         'group_id': group_id,
         'language_text': "English", # for now
-        'joining_date': joining_date if joining_date else datetime.now(pytz.timezone(timezone)).date(), # you may change it to UTC +8 or else..
+        'joining_date': joining_date if joining_date else datetime.now(pytz.timezone("Asia/Singapore")).date(), # you may change it to UTC +8 or else..
         'timezone': timezone,
         'pushup_goal': pushup_goal
     }
