@@ -43,8 +43,7 @@ def start_command(update: Update, context: CallbackContext):
         # Send instructions message
         context.bot.send_chat_action(chat_id=user_id, action=ChatAction.TYPING)
         instruction_message = (
-            "Now it's your turn! Please face the camera and perform your first 10-20 pushups while recording, "
-            "make sure your body is apparent as in the video above👆")
+            "Now, record a videonote of yourself doing 10-20 pushups facing the camera with your entire body in the circle frame. Half-pushups won't count.")
         update.message.reply_text(text=instruction_message)
 
     else:

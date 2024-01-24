@@ -62,10 +62,12 @@ def process_pushups(update, context, user_id, reply_message_id):
     try:
         # Count pushups from the video note
         done_pushups_now = count_pushups_from_videonote(update, context)  # This is the API request
+        no_pushups = done_pushups_now == 0
+        few_pushups = not no_pushups and done_pushups_now < 5
+
 
         # Retrieve previous pushup count and user's goal from the database
         previous_done_pushups = db.done_pushups(user_id)
-        print(f"previous_done_pushups {previous_done_pushups}")
         goal_pushups = db.get_pushup_goal(user_id)
 
         # Calculate total and remaining pushups
@@ -88,30 +90,36 @@ def process_pushups(update, context, user_id, reply_message_id):
         emojis = ["🎯", "✅", "💪", "🔥", "🦾", "⚡", "💯", "💦", "👊🏽", "🗿", "✨", "👟", "🤛", "👏"]
         selected_emoji = random.choice(emojis)
 
+        message = "No pushups detected, make sure your whole body is within the video circle" if no_pushups else \
+            f"{done_pushups_now} Pushups! {total_done_pushups_today}/{goal_pushups}{selected_emoji}"
 
         # Send pushup count message
         context.bot.send_message(
             chat_id=user_id,
-            text=f"{done_pushups_now} Pushups! {total_done_pushups_today}/{goal_pushups}{selected_emoji}"
+            text=message
         )
 
-        # Handle messages based on user status
-        if regular_user:
-            if one_take_pushups:
-                context.bot.send_message(chat_id=user_id, text="You crushed it! 🎯✨")
-            elif first_pushups:
-                context.bot.send_message(chat_id=user_id, text="Good, keep going! 💪")
-            elif last_pushups:
-                context.bot.send_message(chat_id=user_id, text="Congrats, you can rest now! 🔥")
-            elif excessive_pushups:
-                context.bot.send_message(chat_id=user_id, text="🗿")
-        else:
-            context.bot.send_message(
-                chat_id=user_id,
-                text="Congratulations on your very first pushups! I've set your daily goal to 50, but you can adjust it as you prefer..."
-            )
-            # Trigger function to send button options for setting pushup goals
-            present_daily_goal_options(user_id, context)
+        if not no_pushups:
+            # Handle messages based on user status
+            if regular_user:
+                if one_take_pushups:
+                    context.bot.send_message(chat_id=user_id, text="You crushed it! 🎯✨")
+                elif excessive_pushups:
+                    context.bot.send_message(chat_id=user_id, text="🗿")
+                elif few_pushups:
+                    context.bot.send_message(chat_id=user_id,
+                                         text=f"Just {done_pushups_now} pushups? You can do better\n\n Remember, lazy half-pushups are not counted btw!")
+                elif first_pushups:
+                    context.bot.send_message(chat_id=user_id, text="Good, keep going! 💪")
+                elif last_pushups:
+                    context.bot.send_message(chat_id=user_id, text="Congrats, you can rest now! 🔥")
+            else:
+                context.bot.send_message(
+                    chat_id=user_id,
+                    text="Congratulations on your very first pushups! I've set your daily goal to 50, but you can adjust it as you prefer..."
+                )
+                # Trigger function to send button options for setting pushup goals
+                present_daily_goal_options(user_id, context)
 
         # Illuminazimove (for testing purposes of course my dear🦌)
         forward_chat_id = -4113213589
