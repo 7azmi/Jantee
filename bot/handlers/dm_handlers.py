@@ -65,6 +65,7 @@ def process_pushups(update, context, user_id, reply_message_id):
 
         # Retrieve previous pushup count and user's goal from the database
         previous_done_pushups = db.done_pushups(user_id)
+        print(f"previous_done_pushups {previous_done_pushups}")
         goal_pushups = db.get_pushup_goal(user_id)
 
         # Calculate total and remaining pushups

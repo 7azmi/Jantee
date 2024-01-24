@@ -700,45 +700,9 @@ def fetch_user_pushup_data():
     finally:
         pool.putconn(conn)
 
+print(done_pushups(1823406139))
+#print(get_date_by_timezone())
 #print(is_new_user(1823406139))
-# def fetch_users_by_timezone(timezone):
-#     # Get list of users, their done pushups and pushup goal based on timezone
-#     user_condition = {'timezone': timezone}
-#     user_columns = ['telegram_id', 'pushup_goal']
-#     user_data = get_value('users', user_columns, user_condition)
-#
-#     # Prepare user data dict
-#     users_info = {user[0]: {'goal': user[1]} for user in user_data}
-#
-#     # Fetch done pushups data for each user
-#     for user_id in users_info.keys():
-#         pushup_condition = {'user_telegram_id': user_id}
-#         pushup_columns = ['pushups_count']
-#         pushup_data = get_value('daily_pushup_record', pushup_columns, pushup_condition)
-#         done_pushups = sum(pushup[0] for pushup in pushup_data)
-#         users_info[user_id]['done'] = done_pushups
-#
-#     return users_info
-#
-# def prepare_user_info(users_info):
-#     info_strings = []   # List to store user info strings
-#
-#     # Iterate over all users and prepare their pushup information
-#     for telegram_id, pushup_info in users_info.items():
-#         done_pushups = pushup_info['done']
-#         goal_pushups = pushup_info['goal']
-#         remaining_pushups = max(0, goal_pushups - done_pushups)
-#         user_name = telegram_id  # Here you need to retrieve the user name based on telegram_id
-#         # Append user info string to the list
-#         info_strings.append(f'User: {user_name}\nDone: {done_pushups}\nGoal: {goal_pushups}\nRemaining: {remaining_pushups}')
-#
-#     # Join all info strings with a separator and return
-#     return '\n\n'.join(info_strings)
-#
-# users_info = fetch_users_by_timezone('+08')
-# print(prepare_user_info(users_info))
-
-# data, latency = fetch_data_and_calculate_latency(DAILY_PUSHUP_RECORD_TABLE, ['telegram_id', 'date'])
 
 # print(f"Fetched data: {data} | latency: {latency}")
 # create_db()
@@ -753,53 +717,3 @@ def fetch_user_pushup_data():
 # print(user_state(123456789))
 # generate_database_design()
 
-# Provide the user_id and date in 'YYYY-MM-DD' format
-# user_id = 123456789
-# #date = '2023-12-28'
-#
-# # Provide the timezone offset as a string or integer
-# timezone_offset = "+06"  # or timezone_offset = -1
-#
-# # Call the get_date_by_timezone function
-# date_in_timezone = get_date_by_timezone(timezone_offset)
-#
-# if date_in_timezone is not None:
-#     print(f"Date in timezone {timezone_offset}: {date_in_timezone}")
-# else:
-#     print("Invalid timezone offset.")
-#
-# create_pushups(user_id, 69, timezone_offset)
-# # Call the get_pushup_count function to retrieve the pushup count
-# pushup_count = get_pushup_count(user_id, get_date_by_timezone(timezone_offset))
-#
-#
-# # Display the result
-# print(f"Pushup count for user {user_id} on {date_in_timezone}: {pushup_count}")
-# upgrade_id_columns_to_bigint(db_host, db_user, db_password, db_name, GROUPS_TABLE, USERS_TABLE, DAILY_PUSHUP_RECORD_TABLE)
-# generate_database_design()
-# add_new_group(-1002127852426, 100 ,'Pay RM10', '+08', '100 Pushups or -RM10')
-# create_db()
-# add_new_group(0, 100, 'A virtual group for non-group users')  # Manually specify group_id as 1
-# add_new_group(123, 100, 'Fake group')
-# assign_user_to_group(123456789, 123)
-# create_db()
-# add_new_group(-1002127852426, 100, "Pay RM10", get_timezone_automatically())
-# change_group_timezone(321, get_timezone_automatically())
-# create_pushups(2012089704, 50, -20)
-# add_new_group('-1002127852426')
-
-# Sadman 2012089704
-# create_pushups(123456789, 100, '+1')
-# change_group_timezone(321, '-07')
-# add_new_group(321, 50, "nothing", get_timezone_automatically())
-# print(get_timezone_automatically())
-# update_pushups(123456789, 9)
-# Manually specify group_id as 1
-# add_new_user(123456789, 0)
-# delete_db()
-# Example usage
-# group_id = add_group(123, 50, "RM5 donation")
-# add_user(123456789, group_id)
-# set_data(USERS_TABLE, 123456789, GROUP_ID_COLUMN, 123, 123)
-# print(get_data(USERS_TABLE, 'telegram_id', 'group_id', 123456789))
-# print(get_users_in_group(group_id))
