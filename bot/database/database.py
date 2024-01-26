@@ -461,11 +461,14 @@ from datetime import datetime, timedelta
 #         conn.close()
 #
 
-def done_pushups(telegram_id, date=get_date_by_timezone()):
+def done_pushups(telegram_id, date=None):
+    if date is None:
+        date = get_date_by_timezone("+08")
     result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['SUM(pushups_count)'],
                        {'user_telegram_id': telegram_id, 'date': date})
 
     return result[0][0] if result and result[0] and result[0][0] is not None else 0
+
 
 
 def set_pushup_goal(telegram_id, pushup_goal):
