@@ -51,7 +51,7 @@ def handle_videonote_dm(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
 
     # Reply immediately to indicate video processing
-    reply = update.message.reply_text("Processing your video, please wait...")
+    reply = update.message.reply_text("I'm counting, hold ya...")
     reply_message_id = reply.message_id
 
     # Start processing the video note in a separate thread
