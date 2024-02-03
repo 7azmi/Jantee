@@ -34,7 +34,7 @@ def main():
     #dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video_dm))
 
     dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video_dm))
-    dp.add_handler(MessageHandler(Filters.video_note, dm_handlers.handle_videonote_dm))
+    dp.add_handler(MessageHandler(Filters.video_note | Filters.chat_type.private, dm_handlers.handle_videonote_dm))
     dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
 
 
