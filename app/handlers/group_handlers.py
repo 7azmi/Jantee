@@ -127,7 +127,7 @@ def on_bot_join(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
 
     for new_member in new_members:
-        if new_member.is_bot and new_member.username == BOT_USERNAME:  # Replace with Jantee's actual username
+        if new_member.is_bot and new_member.username == BOT_USERNAME:
             # Check if the group is new to the database
             if not db.check_group_registration(chat_id):
                 db.add_new_group(chat_id, update.effective_chat.title)  # Add new group to the database

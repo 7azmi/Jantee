@@ -36,8 +36,8 @@ def main():
     handlers.set_commands_handler(dp)
 
     dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video))
-    dp.add_handler(MessageHandler(Filters.video_note & ~Filters.text & Filters.chat_type.private, dm_handlers.handle_videonote))
-    dp.add_handler(MessageHandler(Filters.video_note & ~Filters.text & Filters.chat_type.group, group_handlers.handle_videonote))
+    dp.add_handler(MessageHandler(Filters.video_note & (Filters.chat_type.group | Filters.chat_type.supergroup), dm_handlers.handle_videonote))
+    dp.add_handler(MessageHandler(Filters.video_note & (Filters.chat_type.group | Filters.chat_type.supergroup), group_handlers.handle_videonote))
     dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
 
     dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, group_handlers.on_bot_join))
@@ -45,7 +45,7 @@ def main():
     dp.add_handler(MessageHandler(Filters.status_update, group_handlers.handle_user_group_update))
 
     #bc.setup_daily_summary(updater)
-    bc.setup_slacker_reminder(updater)
+    # bc.setup_slacker_reminder(updater)
     # Use the custom filter in the MessageHandler
     # dp.add_handler(MessageHandler(FilterStartsWithUTC.starts_with_utc, handle_timezone_selection))
     # Create the CallbackQueryHandler with the custom callback function and filter
