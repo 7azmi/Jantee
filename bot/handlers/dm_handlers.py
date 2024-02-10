@@ -1,17 +1,11 @@
-import os
 import random
 
-from cryptography.fernet import Fernet
-import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction, bot
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
 from telegram.ext import CallbackContext
 from bot.database import database as db
 from bot.AI import gemini as gm
-from bot import pushup_counter as pc
+from bot.handlers import pushup_counter as pc
 from bot.shared import *
-import threading
-
-
 
 pushup_options = {
     15: "15 Pushups - Great for beginners!",
