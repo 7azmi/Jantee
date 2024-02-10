@@ -1,7 +1,3 @@
-import random
-import threading
-import time
-
 from telegram import Update, ChatAction, KeyboardButton, ReplyKeyboardMarkup, ParseMode, InlineKeyboardButton, \
     InlineKeyboardMarkup
 from telegram.error import BadRequest

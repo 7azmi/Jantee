@@ -4,7 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAct
 from telegram.ext import CallbackContext
 from bot.database import database as db
 from bot.AI import gemini as gm
-import bot.handlers.pushup_counter as pc
+import bot.pushup_model.pushup_counter as pc
 from bot.shared import *
 
 pushup_options = {
