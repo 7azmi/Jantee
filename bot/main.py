@@ -5,9 +5,9 @@ import sys
 from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler, CallbackContext
 
 import bot_clock as bc
-from bot.handlers import group_handlers
-from bot.handlers import dm_handlers
-from bot.handlers import handlers
+from handlers import group_handlers
+from handlers import dm_handlers
+from handlers import handlers
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
