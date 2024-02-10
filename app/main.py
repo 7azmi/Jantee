@@ -36,7 +36,7 @@ def main():
     handlers.set_commands_handler(dp)
 
     dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video))
-    dp.add_handler(MessageHandler(Filters.video_note & (Filters.chat_type.group | Filters.chat_type.supergroup), dm_handlers.handle_videonote))
+    dp.add_handler(MessageHandler(Filters.video_note & Filters.chat_type.private, dm_handlers.handle_videonote))
     dp.add_handler(MessageHandler(Filters.video_note & (Filters.chat_type.group | Filters.chat_type.supergroup), group_handlers.handle_videonote))
     dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
 
