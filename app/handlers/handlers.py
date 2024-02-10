@@ -1,5 +1,5 @@
 from telegram.ext import CommandHandler, Filters, MessageHandler, CallbackQueryHandler
-from bot.handlers import dm_handlers, command_handlers, group_handlers
+from app.handlers import dm_handlers, command_handlers, group_handlers
 def set_commands_handler(dp):
     command_handlers.load_quotes()
 

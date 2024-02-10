@@ -136,6 +136,6 @@ demo_chatgpt.py
 gptbot_db.sqlite
 
 .space
-bot/bot.py
+app/bot.py
 
 .vscode

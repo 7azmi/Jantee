@@ -3,17 +3,17 @@ from telegram import Update, ChatAction, KeyboardButton, ReplyKeyboardMarkup, Pa
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
-from bot.AI import gemini as gm
-from bot.database import database as db
+from app.AI import gemini as gm
+from app.database import database as db
 
-from bot.handlers import dm_handlers
+from app.handlers import dm_handlers
 
 global quotes
 
 
 def load_quotes():
     global quotes
-    with open("bot/data/pushup_quotes.txt", "r") as file:
+    with open("app/data/pushup_quotes.txt", "r") as file:
         quotes = [line.strip() for line in file]
 
 
@@ -77,7 +77,7 @@ def dm_start_command(update: Update, context: CallbackContext):
 
         # Greet the user
         context.bot.send_chat_action(chat_id=user_id, action=ChatAction.TYPING)
-        welcome_message = "Hi {}! Welcome to the pushup challenge bot.".format(full_name)
+        welcome_message = "Hi {}! Welcome to the pushup challenge app.".format(full_name)
         update.message.reply_text(text=welcome_message)
 
         # Send how-to-use video note

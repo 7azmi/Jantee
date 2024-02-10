@@ -2,10 +2,10 @@ import random
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
 from telegram.ext import CallbackContext
-from bot.database import database as db
-from bot.AI import gemini as gm
-from bot.pushup_model import pushup_counter as pc
-from bot.shared import *
+from app.database import database as db
+from app.AI import gemini as gm
+from app.pushup_model import pushup_counter as pc
+from app.shared import *
 
 pushup_options = {
     15: "15 Pushups - Great for beginners!",

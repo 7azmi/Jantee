@@ -6,7 +6,7 @@ from psycopg2 import pool
 import time
 
 # Load environment variables
-load_dotenv("bot/.env")
+load_dotenv("app/.env")
 
 # Database credentials
 db_host = os.environ.get("PGHOST", "your_host")
@@ -177,7 +177,7 @@ def add_new_group(group_id, group_name, bot_is_in_group=True):
     data = {
         'group_id': group_id,
         'group_name': group_name,
-        'bot_is_in_group': bot_is_in_group  # Assuming the bot is not in the group by default
+        'bot_is_in_group': bot_is_in_group  # Assuming the app is not in the group by default
     }
 
     create_row(table_name, data)

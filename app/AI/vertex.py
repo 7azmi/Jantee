@@ -5,7 +5,7 @@ from vertexai.preview.language_models import TextGenerationModel
 import vertexai
 from vertexai.preview.language_models import TextGenerationModel
 
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/humadi/Github/Lucy/bot/AI/application_default_credentials.json"
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/home/humadi/Github/Lucy/app/AI/application_default_credentials.json"
 
 #vertexai.init(project="inbound-trainer-409815", location="asia-southeast1")
 

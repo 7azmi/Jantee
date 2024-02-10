@@ -162,4 +162,4 @@ def missed_days_this_month(telegram_id: int):
 
 
 #def run_API():
-#uvicorn.run(bot, host="0.0.0.0", port=int(os.environ.get("API_PORT", 5000)))
+#uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("API_PORT", 5000)))
