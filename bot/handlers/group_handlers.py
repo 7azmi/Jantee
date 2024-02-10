@@ -3,7 +3,7 @@ import random
 import threading
 from telegram import Update
 from telegram.ext import CallbackContext
-import bot.pushup_model.pushup_counter as pc
+from bot.pushup_model import pushup_counter as pc
 from bot.database import database as db
 
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "janteebot")
