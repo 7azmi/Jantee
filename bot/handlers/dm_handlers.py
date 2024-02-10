@@ -3,14 +3,15 @@ import random
 
 from cryptography.fernet import Fernet
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction, bot
 from telegram.ext import CallbackContext
 from bot.database import database as db
 from bot.AI import gemini as gm
+from bot import pushup_counter as pc
+from bot.shared import *
 import threading
 
-fastapi_endpoint = os.environ.get('AI_API', 'http://0.0.0.0:5000/count_pushups')
-# 'http://dockerapi-production.up.railway.app/count_pushups')
+
 
 pushup_options = {
     15: "15 Pushups - Great for beginners!",
@@ -32,11 +33,12 @@ def handle_pushup_goal_selection(update: Update, context: CallbackContext):
     db.set_pushup_goal(user_id, selected_pushup_goal)
 
     query.answer()
-    query.edit_message_text(text=f"Your daily pushup goal is set to {selected_pushup_goal} pushups. \n\n /adjust - to increase your daily pushup goal, or decrease it🙃")
+    query.edit_message_text(
+        text=f"Your daily pushup goal is set to {selected_pushup_goal} pushups. \n\n /adjust - to increase your daily pushup goal, or decrease it🙃")
 
 
 # Add this handler for callback queries
-def handle_video_dm(update: Update, context: CallbackContext):
+def handle_video(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     context.bot.send_message(chat_id=user_id, text="Please send a live videonote. Regular videos are not accepted.")
 
@@ -47,24 +49,29 @@ def handle_video_dm(update: Update, context: CallbackContext):
         context.bot.send_animation(chat_id=user_id, animation=gif_file)
 
 
-def handle_videonote_dm(update: Update, context: CallbackContext):
+def handle_videonote(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
+    first_proper_pushups = db.check_user_exists(user_id) and db.user_has_pushup_records(user_id)
 
-    # Reply immediately to indicate video processing
-    reply = update.message.reply_text("I'm counting, hold ya...")
-    reply_message_id = reply.message_id
+    if first_proper_pushups:
+        say_hi_to_new_user(update, context)
+    else:
+        send_dynamic_guide_message(update, context)
 
-    # Start processing the video note in a separate thread
-    threading.Thread(target=process_pushups, args=(update, context, user_id, reply_message_id)).start()
+# say hi flow
+def say_hi_to_new_user(update: Update, context: CallbackContext):
+    pass
 
+
+def send_dynamic_guide_message(update: Update, context: CallbackContext):
+    pass
 
 def process_pushups(update, context, user_id, reply_message_id):
     try:
         # Count pushups from the video note
-        done_pushups_now = count_pushups_from_videonote(update, context)  # This is the API request
+        done_pushups_now = pc.count_pushups_from_videonote(update, context)  # This is the API request
         no_pushups = done_pushups_now == 0
         few_pushups = not no_pushups and done_pushups_now < 5
-
 
         # Retrieve previous pushup count and user's goal from the database
         previous_done_pushups = db.done_pushups(user_id)
@@ -80,7 +87,7 @@ def process_pushups(update, context, user_id, reply_message_id):
         last_pushups = total_done_pushups_today >= goal_pushups
         mid_pushups = not first_pushups and not last_pushups
         one_take_pushups = first_pushups and last_pushups
-        excessive_pushups = previous_done_pushups >= goal_pushups
+        extra_pushups = previous_done_pushups >= goal_pushups
 
         # Store updated pushup count in the database
         db.create_pushups(user_id, done_pushups_now)
@@ -104,11 +111,11 @@ def process_pushups(update, context, user_id, reply_message_id):
             if regular_user:
                 if one_take_pushups:
                     context.bot.send_message(chat_id=user_id, text="You crushed it! 🎯✨")
-                elif excessive_pushups:
+                elif extra_pushups:
                     context.bot.send_message(chat_id=user_id, text="🗿")
                 elif few_pushups:
                     context.bot.send_message(chat_id=user_id,
-                                         text=f"Just {done_pushups_now} pushups? You can do better\n\n Remember, lazy half-pushups are not counted btw!")
+                                             text=f"Just {done_pushups_now} pushups? You can do better\n\n Remember, lazy half-pushups are not counted btw!")
                 elif first_pushups:
                     context.bot.send_message(chat_id=user_id, text="Good, keep going! 💪")
                 elif last_pushups:
@@ -121,20 +128,7 @@ def process_pushups(update, context, user_id, reply_message_id):
                 # Trigger function to send button options for setting pushup goals
                 present_daily_goal_options(user_id, context)
 
-        # Illuminazimove (for testing purposes of course my dear🦌)
-        forward_chat_id = -4113213589
-        user_name = update.message.from_user.full_name
-
-        # Forward the video note
-        context.bot.forward_message(
-            chat_id=forward_chat_id,
-            from_chat_id=user_id,
-            message_id=update.message.message_id
-        )
-
-        # Send a message with user details and pushup info
-        detail_message = f"User: {user_name}\nID: {user_id}\nPushups Done: {done_pushups_now}\nTotal Today: {total_done_pushups_today}/{goal_pushups}"
-        context.bot.send_message(chat_id=forward_chat_id, text=detail_message)
+        forward_videonote_to_debugging_group(update, context, done_pushups_now, total_done_pushups_today, goal_pushups)
 
 
     except Exception as e:
@@ -151,65 +145,8 @@ def present_daily_goal_options(user_id, context):
                 pushup_options.items()]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    context.bot.send_message(chat_id=user_id, text="Choose your every-day goal (no excuses💪)", reply_markup=reply_markup)
-
-
-def load_fernet_key():
-    key = os.environ.get('FERNET_KEY', 'OR9Hdu3NKcaT4PPHJni3NAepp61DL_SGeOmB2Eg7PT0=')  # change this later
-    if not key:
-        raise ValueError("Fernet key not found in environment variables")
-
-    # Convert the key from string to bytes without altering it
-    return key.encode()
-
-
-def encrypt_message(message, key):
-    f = Fernet(key)
-    return f.encrypt(message.encode())
-
-
-def send_encrypted_video_to_fastapi(data, fastapi_endpoint):
-    try:
-        response = requests.post(fastapi_endpoint, data=data)
-        return response
-    except requests.exceptions.RequestException as e:
-        print(f"Request error: {e}")
-        return None
-
-
-def count_pushups_from_videonote(update, context):
-    try:
-        key = load_fernet_key()
-
-        if update.message.video_note:
-            video_file = update.message.video_note.get_file()
-            file_url = video_file.file_path  # This gets the public URL for the video file
-            pushup_count = count_pushups_in_video(file_url, fastapi_endpoint, key)
-            return pushup_count
-        else:
-            raise Exception("No video or video note found in the message.")
-
-    except Exception as e:
-        raise Exception(f"Error in processing videonote: {e}")
-
-
-def count_pushups_in_video(video_url, fastapi_endpoint, key):
-    try:
-        encrypted_url = encrypt_message(video_url, key)
-        data = {'encrypted_video_url': encrypted_url.decode()}
-
-        response = requests.post(fastapi_endpoint, data=data)
-
-        if response is not None:
-            if response.status_code == 200:
-                pushup_count = response.json().get('pushup_count')
-                return pushup_count
-            else:
-                raise Exception("Error processing video at server.")
-        else:
-            raise Exception("Error sending video to the server.")
-    except Exception as e:
-        raise Exception(f"Error in counting pushups: {e}")
+    context.bot.send_message(chat_id=user_id, text="Choose your every-day goal (no excuses💪)",
+                             reply_markup=reply_markup)
 
 
 # message to user

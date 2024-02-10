@@ -1,13 +1,9 @@
 import os
-from datetime import datetime, timedelta
-
 import psycopg2
 import pytz
-
 from dotenv import load_dotenv
 from psycopg2 import pool
-
-# import pytz
+import time
 
 # Load environment variables
 load_dotenv("bot/.env")
@@ -176,17 +172,16 @@ def delete_row(table_name, condition):
         pool.putconn(conn)
 
 
-def add_new_group(group_id, pushup_goal, punishment, timezone, group_name):
+def add_new_group(group_id, group_name, bot_is_in_group=True):
     table_name = GROUPS_TABLE
     data = {
         'group_id': group_id,
-        'pushup_goal': pushup_goal,
-        'punishment': punishment,
-        'timezone': timezone,
-        'group_name': group_name
+        'group_name': group_name,
+        'bot_is_in_group': bot_is_in_group  # Assuming the bot is not in the group by default
     }
 
     create_row(table_name, data)
+
 
 
 def change_group_timezone(group_id, new_timezone):
@@ -268,7 +263,7 @@ def assign_user_to_group(telegram_id, group_id):
 
 
 def remove_user_from_group(telegram_id):
-    assign_user_to_group(telegram_id, 0)
+    register_user_to_group(telegram_id, 0)
 
 
 # for testing
@@ -372,7 +367,7 @@ def check_user_group_status(user_id, group_id):
         return 'no_group'
 
 
-def assign_user_to_group(user_id, group_id):
+def register_user_to_group(user_id, group_id):
     if get_value(USERS_TABLE, ['telegram_id'], {'telegram_id': user_id}):
         set_value(USERS_TABLE, {'group_id': group_id}, {'telegram_id': user_id})
     else:
@@ -395,7 +390,7 @@ def get_group_timezone(group_id):
     else:
         return None
 def check_group_registration(group_id):
-    result = get_value(GROUPS_TABLE, ['COUNT(1)'], {'telegram_id': group_id})
+    result = get_value(GROUPS_TABLE, ['COUNT(1)'], {'group_id': group_id})
     return result[0][0] > 0 if result else False
 
 
@@ -649,7 +644,6 @@ def get_remaining_pushups_user(telegram_id):
 
 
 # create a funcion that gets some data from database and calculate the latency
-import time
 
 
 def fetch_data_and_calculate_latency(table_name, columns):
@@ -703,7 +697,95 @@ def fetch_user_pushup_data():
     finally:
         pool.putconn(conn)
 
-print(done_pushups(1823406139))
+
+def user_has_pushup_records(telegram_id):
+    conn = pool.getconn()
+    try:
+        c = conn.cursor()
+        query = "SELECT EXISTS (SELECT 1 FROM daily_pushup_record WHERE user_telegram_id = %s)"
+        c.execute(query, (telegram_id,))
+        exists = c.fetchone()[0]
+        return exists
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return False
+    finally:
+        pool.putconn(conn)
+
+
+def is_user_registered_in_another_group(user_id, exclude_group_id=None):
+    conn = pool.getconn()
+    try:
+        c = conn.cursor()
+        query = "SELECT EXISTS (SELECT 1 FROM users WHERE telegram_id = %s AND group_id != %s)"
+        c.execute(query, (user_id, exclude_group_id if exclude_group_id else 0))
+        return c.fetchone()[0]
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return False
+    finally:
+        pool.putconn(conn)
+
+def deregister_user_from_group(user_id, group_id):
+    conn = pool.getconn()
+    try:
+        c = conn.cursor()
+        c.execute("UPDATE users SET group_id = 0 WHERE telegram_id = %s AND group_id = %s", (user_id, group_id))
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        pool.putconn(conn)
+
+def update_bot_is_in_group(group_id, status):
+    conn = pool.getconn()
+    try:
+        c = conn.cursor()
+        c.execute("UPDATE groups SET bot_is_in_group = %s WHERE group_id = %s", (status, group_id))
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        pool.putconn(conn)
+
+def get_user_group_id(telegram_id):
+    conn = pool.getconn()
+    try:
+        c = conn.cursor()
+
+        # Query to get the group_id for the user
+        c.execute("SELECT group_id FROM users WHERE telegram_id = %s", (telegram_id,))
+        result = c.fetchone()
+
+        # Return the group_id if it exists, else return None
+        return result[0] if result else None
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return None
+    finally:
+        pool.putconn(conn)
+
+
+
+def is_registered_in_different_group(user_id, chat_id):
+    conn = pool.getconn()
+    try:
+        c = conn.cursor()
+
+        # Query to check if the user is in a different group
+        c.execute("SELECT EXISTS (SELECT 1 FROM users WHERE telegram_id = %s AND group_id != %s)", (user_id, chat_id))
+
+        # Fetch the result and return
+        return c.fetchone()[0]
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return False
+    finally:
+        pool.putconn(conn)
+
+
+#print(user_has_pushup_records(732496348))
+# print(done_pushups(1823406139))
 #print(get_date_by_timezone())
 #print(is_new_user(1823406139))
 
@@ -719,4 +801,9 @@ print(done_pushups(1823406139))
 # print(count_strike_done_days(123456789))
 # print(user_state(123456789))
 # generate_database_design()
+# date = get_date_by_timezone("+08")
+# result = get_value(DAILY_PUSHUP_RECORD_TABLE, ['SUM(pushups_count)'],
+#                    {'user_telegram_id': 1823406139, 'date': date})
+# print(result)
+
 

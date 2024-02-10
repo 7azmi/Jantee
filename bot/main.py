@@ -5,9 +5,11 @@ import sys
 from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler, CallbackContext
 
 import bot_clock as bc
+from bot.handlers import group_handlers
+from bot.handlers import dm_handlers
+from bot.handlers import handlers
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from handlers.handlers import *
 from dotenv import load_dotenv
 
 # Load environment variables from a .env file
@@ -29,14 +31,16 @@ def main():
     dp = updater.dispatcher
 
     # command handlers
-    set_commands_handler(dp)
+    handlers.set_commands_handler(dp)
 
-    #dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video_dm))
-
-    dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video_dm))
-    dp.add_handler(MessageHandler(Filters.video_note | Filters.chat_type.private, dm_handlers.handle_videonote_dm))
+    dp.add_handler(MessageHandler(Filters.video, dm_handlers.handle_video))
+    dp.add_handler(MessageHandler(Filters.video_note & ~Filters.text & Filters.chat_type.private, dm_handlers.handle_videonote))
+    dp.add_handler(MessageHandler(Filters.video_note & ~Filters.text & Filters.chat_type.group, group_handlers.handle_videonote))
     dp.add_handler(CallbackQueryHandler(dm_handlers.handle_pushup_goal_selection, pattern='^\d+$'))
 
+    dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, group_handlers.on_bot_join))
+    dp.add_handler(MessageHandler(Filters.status_update.left_chat_member, group_handlers.on_bot_leave))
+    dp.add_handler(MessageHandler(Filters.status_update, group_handlers.handle_user_group_update))
 
     #bc.setup_daily_summary(updater)
     bc.setup_slacker_reminder(updater)
