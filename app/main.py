@@ -2,14 +2,16 @@ import logging
 import logging.config
 import os
 import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from telegram.ext import Filters, MessageHandler, Updater, ChatMemberHandler, CallbackQueryHandler, CallbackContext
 
 import bot_clock as bc
-from handlers import group_handlers
 from handlers import dm_handlers
+from handlers import group_handlers
 from handlers import handlers
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from dotenv import load_dotenv
 
 # Load environment variables from a .env file

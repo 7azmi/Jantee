@@ -3,8 +3,8 @@ import random
 import threading
 from telegram import Update
 from telegram.ext import CallbackContext
-from app.pushup_model import pushup_counter as pc
 from app.database import database as db
+import app.pushup_model.pushup_counter as pc
 
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "janteebot")
 def handle_videonote(update: Update, context: CallbackContext):
